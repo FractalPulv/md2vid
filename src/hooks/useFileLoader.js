@@ -10,7 +10,20 @@ const useFileLoader = () => {
         invoke('get_all_files_frontmatter')
             .then((response) => {
                 console.log('File frontmatter fetched:', response);
-                setFileFrontmatter(response);
+                
+                // Parse the JSON response if necessary
+                let parsedResponse;
+                try {
+                    parsedResponse = JSON.parse(response);
+                } catch (e) {
+                    console.error('Error parsing response:', e);
+                    setLoading(false);
+                    return;
+                }
+
+                console.log('Parsed response:', parsedResponse);
+
+                setFileFrontmatter(parsedResponse);
                 setLoading(false);
             })
             .catch((error) => {

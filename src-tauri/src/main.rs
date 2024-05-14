@@ -4,9 +4,7 @@
 use dotenv::dotenv;
 use std::fs;
 
-use serde_json::Value;
-use serde_json::json;
-use serde_json::Map;
+use serde_json::{json, Map, Value};
 
 fn main() {
     dotenv().ok();
@@ -40,6 +38,7 @@ fn get_all_files_frontmatter() -> Result<String, String> {
             let file = fs::read_to_string(&path).map_err(|e| e.to_string())?;
             match extract_frontmatter(&file) {
                 Ok(frontmatter) => {
+                    println!("Frontmatter: {:?}", frontmatter);
                     frontmatters.push(frontmatter);
                     count += 1; // Increment the counter
                 },
@@ -53,7 +52,6 @@ fn get_all_files_frontmatter() -> Result<String, String> {
             }
         }
     }
-
     serde_json::to_string(&frontmatters).map_err(|e| e.to_string())
 }
 
@@ -65,38 +63,31 @@ fn extract_frontmatter(file: &str) -> Result<serde_json::Value, serde_json::Erro
     let frontmatter_str = &file[start_index..end_index].trim();
     
     // Split the frontmatter into lines
-    let lines: Vec<&str> = frontmatter_str.split('\n').filter(|s|!s.trim().is_empty()).collect();
+    let lines: Vec<&str> = frontmatter_str.split('\n').filter(|s| !s.trim().is_empty()).collect();
 
-    println!("Lines:");
-    println!("{:?}", lines);
-    
-    // Construct a JSON object from the frontmatter lines
-    let mut json_object = serde_json::Map::new();
+    let mut frontmatter_map = Map::new();
     for line in lines {
-        let parts: Vec<&str> = line.splitn(2, ':').map(|s| s.trim()).collect();
-        if parts.len() == 2 {
-            let key = parts[0];
-            let value = parts[1].trim();
-            // Directly insert the value into the JSON object without wrapping it in serde_json::Value::String
-            json_object.insert(key.to_string(), json!(value));
-        }
+        let mut parts = line.splitn(2, ':');
+        let key = parts.next().unwrap().trim();
+        let value = parts.next().unwrap().trim();
+        
+        // Parse the value properly and insert it into the JSON map
+        let parsed_value = parse_value(value);
+        frontmatter_map.insert(key.to_string(), parsed_value);
     }
 
-
-    println!("{:?}", json_object);
-
-    // Convert JSON object to serde_json::Value
-    let result = serde_json::Value::Object(json_object);
-
-    println!("{:?}", result);
-
-    Ok(result)
+    Ok(Value::Object(frontmatter_map))
 }
 
-
-
-
-
-
-
-
+fn parse_value(value: &str) -> Value {
+    // Try to parse as a boolean
+    if let Ok(boolean) = value.parse::<bool>() {
+        return json!(boolean);
+    }
+    // Try to parse as a number (integer or float)
+    if let Ok(number) = value.parse::<f64>() {
+        return json!(number);
+    }
+    // Default to string if nothing else matches
+    json!(value)
+}
