@@ -3,10 +3,13 @@ import reactLogo from "./assets/react.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
 import { invoke } from "@tauri-apps/api";
-import useFileLoader from "./hooks/useFileLoader"; // Import from the correct path
+import useFileLoader from "./hooks/useFileLoader";
+import Overlay from "./components/Overlay"; // Import the Overlay component
 
 function App() {
   const { fileFrontmatter, loading } = useFileLoader();
+  const [sortOption, setSortOption] = useState("date");
+  const [selectedFile, setSelectedFile] = useState(null); // Track the selected file
 
   useEffect(() => {
     invoke("greet", { name: "World" }).then((response) =>
@@ -29,16 +32,7 @@ function App() {
     return date.toLocaleDateString(undefined, options);
   };
 
-  // make a dictionary for the ratings
-  // ~ = Average
-  // + = Good
-  // ++ = Great
-  // +++ = Wonderful
-  // - = Bad
-  // -- = Very Bad
-  // --- = Terrible
-  // ~+ = Above Average
-  // ~- = Below Average
+  // Rating dictionary
   const ratingDictionary = {
     "~": "Average",
     "+": "Good",
@@ -51,32 +45,79 @@ function App() {
     "~-": "Below Average",
   };
 
+  const sortFiles = (option) => {
+    let sortedFiles = [...fileFrontmatter];
+
+    if (option === "date") {
+      sortedFiles.sort((a, b) => {
+        const dateA = new Date(a.filename.replace(".md", ""));
+        const dateB = new Date(b.filename.replace(".md", ""));
+        return dateB - dateA;
+      });
+    } else if (option === "title") {
+      sortedFiles.sort((a, b) => {
+        return a.entry_title.localeCompare(b.entry_title);
+      });
+    }
+
+    return sortedFiles;
+  };
+
+  const sortedFileFrontmatter = sortFiles(sortOption);
+
+  const handleFileClick = (file) => {
+    setSelectedFile(file);
+  };
+
+  const handleOverlayClick = () => {
+    setSelectedFile(null);
+  };
+
   return (
     <div className="container mx-auto p-4">
+      <div className="flex justify-end mb-4">
+        <label htmlFor="sortOption" className="mr-2">
+          Sort By:
+        </label>
+        <select
+          id="sortOption"
+          value={sortOption}
+          onChange={(e) => setSortOption(e.target.value)}
+          className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="date">Date</option>
+          <option value="title">Title</option>
+        </select>
+      </div>
       <div className="grid grid-cols-3 gap-4">
-        {fileFrontmatter.map((file) => (
+        {sortedFileFrontmatter.map((file) => (
           <div
             key={file.filename}
-            className="bg-red-500 flex justify-center items-center relative aspect-[4/3] rounded-lg shadow-lg overflow-hidden transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer"
+            className="flex justify-center items-center relative aspect-[4/3] rounded-lg shadow-lg overflow-hidden transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer"
+            onClick={() => handleFileClick(file)} // Add onClick handler
           >
             <img
-              src={
-                file.entry_thumbnail
-                  ? file.entry_thumbnail
-                  : "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"
-              }
+              src={file.entry_thumbnail || "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"}
               alt={file.filename}
               className="h-full w-full object-cover"
             />
             <div className="absolute bottom-0 left-0 bg-black bg-opacity-50 rounded-lg p-2">
               <p className="text-white text-left">{file.entry_title}</p>
               <p className="text-white text-sm text-left">
-                {formatDate(file.filename)}
+                {formatDate(file.filename)} {file.hidden && "🔒"}
+              </p>
+            </div>
+            <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 p-2">
+              <p className="text-white text-sm text-right">
+                {file.rating}
               </p>
             </div>
           </div>
         ))}
       </div>
+      {selectedFile && (
+        <Overlay file={selectedFile} onClick={handleOverlayClick} /> // Render the Overlay component when a file is selected
+      )}
     </div>
   );
 }
