@@ -3,7 +3,7 @@
 
 use dotenv::dotenv;
 use std::fs;
-
+use std::path::Path;
 use serde_json::{json, Map, Value};
 
 fn main() {
@@ -36,7 +36,8 @@ fn get_all_files_frontmatter() -> Result<String, String> {
         let path = path.map_err(|e| e.to_string())?.path();
         if path.is_file() {
             let file = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            match extract_frontmatter(&file) {
+            let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            match extract_frontmatter(&file, &filename) {
                 Ok(frontmatter) => {
                     println!("Frontmatter: {:?}", frontmatter);
                     frontmatters.push(frontmatter);
@@ -55,7 +56,7 @@ fn get_all_files_frontmatter() -> Result<String, String> {
     serde_json::to_string(&frontmatters).map_err(|e| e.to_string())
 }
 
-fn extract_frontmatter(file: &str) -> Result<serde_json::Value, serde_json::Error> {
+fn extract_frontmatter(file: &str, filename: &str) -> Result<serde_json::Value, serde_json::Error> {
     let start_delimiter = "---";
     let end_delimiter = "---";
     let start_index = file.find(start_delimiter).unwrap() + start_delimiter.len();
@@ -75,6 +76,9 @@ fn extract_frontmatter(file: &str) -> Result<serde_json::Value, serde_json::Erro
         let parsed_value = parse_value(value);
         frontmatter_map.insert(key.to_string(), parsed_value);
     }
+
+    // Insert the filename into the JSON map
+    frontmatter_map.insert("filename".to_string(), json!(filename));
 
     Ok(Value::Object(frontmatter_map))
 }
