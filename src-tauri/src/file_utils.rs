@@ -9,7 +9,7 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
     let mut count = 0; // Counter for the number of files processed
 
     for path in paths {
-        if count >= 5 {
+        if count >= 40 {
             break; // Exit the loop if we have processed 5 files
         }
 

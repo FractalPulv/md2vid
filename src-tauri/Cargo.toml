@@ -23,6 +23,8 @@ video-rs = { version = "0.8", features = ["ndarray"] }
 ndarray = "0.15"
 image = "0.25.1"
 rusttype = "0.9.3"
+youtube_dl = { version = "0.10.0", features = ["tokio"] }
+tokio = { version = "1.37.0", features = ["full"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

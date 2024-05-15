@@ -2,16 +2,33 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use dotenv::dotenv;
+use std::error::Error; // Import the Error trait
 
 // Import the file_utils and video_gen modules
 mod file_utils;
 mod video_gen;
+mod yt_downloader;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     dotenv().ok();
 
+    let url = "https://www.youtube.com/watch?v=uYzZEW4bCro";
+    
+
+    match yt_downloader::download_youtube_as_mp3(url) {
+        Ok(output) => {
+            // Handle successful result
+            // Do something with the output
+        }
+        Err(error) => {
+            // Handle error
+            eprintln!("Error: {}", error);
+        }
+    }
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_rainbow_video, create_black_video])
+        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_black_video_with_audio])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -26,12 +43,12 @@ fn get_all_files_frontmatter() -> Result<String, String> {
     file_utils::get_all_files_frontmatter()
 }
 
-#[tauri::command]
-fn create_rainbow_video() -> Result<(), String> {
-    video_gen::create_rainbow_video().map_err(|e| e.to_string())
-}
+// #[tauri::command]
+// fn create_rainbow_video() -> Result<(), String> {
+//     video_gen::create_rainbow_video().map_err(|e| e.to_string())
+// }
 
 #[tauri::command]
-fn create_black_video() -> Result<(), String> {
-    video_gen::create_black_video().map_err(|e| e.to_string())
+async fn create_black_video_with_audio() -> Result<(), String> {
+    video_gen::create_black_video_with_audio().await.map_err(|e| e.to_string())
 }
