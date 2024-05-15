@@ -4,6 +4,9 @@ use ndarray::Array3;
 use video_rs::encode::{Encoder, Settings};
 use video_rs::time::Time;
 
+use image::{ImageBuffer, Rgb};
+use rusttype::{Font, Scale};
+
 pub fn create_rainbow_video() -> Result<(), Box<dyn std::error::Error>> {
     video_rs::init().unwrap(); // Initialize video-rs
 
@@ -12,13 +15,13 @@ pub fn create_rainbow_video() -> Result<(), Box<dyn std::error::Error>> {
 
     let duration: Time = Time::from_nth_of_a_second(24);
     let mut position = Time::zero();
+    let title = "Rainbow Title"; // Define your title here
+
     for i in 0..256 {
-        // This will create a smooth rainbow animation video!
-        let frame = rainbow_frame(i as f32 / 256.0);
+        let frame = rainbow_frame(i as f32 / 256.0, title); // Pass the title to the function
 
         encoder.encode(&frame, position)?;
 
-        // Update the current position and add the inter-frame duration to it.
         position = position.aligned_with(duration).add();
     }
 
@@ -27,14 +30,43 @@ pub fn create_rainbow_video() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn rainbow_frame(p: f32) -> Array3<u8> {
-    // This is what generates the rainbow effect! We loop through the HSV color spectrum and convert
-    // to RGB.
+fn rainbow_frame(p: f32, title: &str) -> Array3<u8> {
+    // Load a font
+    let font_data = include_bytes!("../assets/Helvetica.ttf"); // Replace with your font file path
+    let font = Font::try_from_bytes(font_data as &[u8]).unwrap();
+    let scale = Scale::uniform(48.0); // Adjust the font size as needed
+
+    // Generate the rainbow frame
     let rgb = hsv_to_rgb(p * 360.0, 100.0, 100.0);
 
-    // This creates a frame with height 720, width 1280 and three channels. The RGB values for each
-    // pixel are equal, and determined by the `rgb` we chose above.
-    Array3::from_shape_fn((720, 1280, 3), |(_y, _x, c)| rgb[c])
+    // Create a mutable image buffer for drawing
+    let mut frame = ImageBuffer::from_fn(1280, 720, |x, y| Rgb([rgb[0], rgb[1], rgb[2]]));
+
+    // Render text onto the image buffer
+    render_text(title, &mut frame, &font, scale);
+
+    // Convert the image buffer to ndarray::Array3<u8>
+    Array3::from_shape_vec((720, 1280, 3), frame.into_raw()).unwrap_or_else(|_| panic!("Failed to convert frame"))
+}
+
+fn render_text(text: &str, frame: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, font: &Font, scale: Scale) {
+    let v_metrics = font.v_metrics(scale);
+    let glyphs: Vec<_> = font.layout(text, scale, rusttype::point(20.0, v_metrics.ascent)).collect();
+
+    for glyph in &glyphs {
+        if let Some(bounding_box) = glyph.pixel_bounding_box() {
+            glyph.draw(|x, y, v| {
+                let x = x as i32 + bounding_box.min.x;
+                let y = y as i32 + bounding_box.min.y;
+                if x >= 0 && x < frame.width() as i32 && y >= 0 && y < frame.height() as i32 {
+                    let pixel = frame.get_pixel_mut(x as u32, y as u32);
+                    let alpha = (v * 255.0) as u8;
+                    let color = [alpha, alpha, alpha];
+                    *pixel = Rgb(color);
+                }
+            });
+        }
+    }
 }
 
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {

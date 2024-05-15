@@ -86,7 +86,7 @@ const Overlay = ({ file, onClick }) => {
                             <div style={maskBorderStyle}></div>
                             <img
                                 ref={imageRef}
-                                src={file.entry_thumbnail}
+                                src={file.entry_thumbnail || "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"}
                                 alt={file.filename}
                                 style={imageStyle}
                             />
