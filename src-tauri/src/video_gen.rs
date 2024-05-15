@@ -62,11 +62,21 @@ fn render_text(text: &str, frame: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, font: &Fon
                     let pixel = frame.get_pixel_mut(x as u32, y as u32);
                     let alpha = (v * 255.0) as u8;
                     let color = [alpha, alpha, alpha];
-                    *pixel = Rgb(color);
+                    let current_color = pixel.0;
+                    let blended_color = blend_colors(current_color, color);
+                    *pixel = Rgb(blended_color);
                 }
             });
         }
     }
+}
+
+fn blend_colors(current_color: [u8; 3], new_color: [u8; 3]) -> [u8; 3] {
+    let alpha = new_color[0] as f32 / 255.0;
+    let r = (new_color[0] as f32 * alpha + current_color[0] as f32 * (1.0 - alpha)) as u8;
+    let g = (new_color[1] as f32 * alpha + current_color[1] as f32 * (1.0 - alpha)) as u8;
+    let b = (new_color[2] as f32 * alpha + current_color[2] as f32 * (1.0 - alpha)) as u8;
+    [r, g, b]
 }
 
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {
