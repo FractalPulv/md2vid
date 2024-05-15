@@ -51,14 +51,23 @@ fn rainbow_frame(p: f32, title: &str) -> Array3<u8> {
 
 fn render_text(text: &str, frame: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, font: &Font, scale: Scale) {
     let v_metrics = font.v_metrics(scale);
-    let glyphs: Vec<_> = font.layout(text, scale, rusttype::point(20.0, v_metrics.ascent)).collect();
+    let glyphs: Vec<_> = font.layout(text, scale, rusttype::point(0.0, v_metrics.ascent)).collect();
+
+    let frame_width = frame.width() as i32;
+    let frame_height = frame.height() as i32;
+
+    let text_width: i32 = glyphs.iter().map(|g| g.unpositioned().h_metrics().advance_width as i32).sum();
+    let text_height: i32 = (v_metrics.ascent - v_metrics.descent) as i32; // Convert to i32
+
+    let x_offset = (frame_width - text_width) / 2;
+    let y_offset = (frame_height - text_height) / 2;
 
     for glyph in &glyphs {
         if let Some(bounding_box) = glyph.pixel_bounding_box() {
             glyph.draw(|x, y, v| {
-                let x = x as i32 + bounding_box.min.x;
-                let y = y as i32 + bounding_box.min.y;
-                if x >= 0 && x < frame.width() as i32 && y >= 0 && y < frame.height() as i32 {
+                let x = x as i32 + bounding_box.min.x + x_offset;
+                let y = y as i32 + bounding_box.min.y + y_offset;
+                if x >= 0 && x < frame_width && y >= 0 && y < frame_height {
                     let pixel = frame.get_pixel_mut(x as u32, y as u32);
                     let alpha = (v * 255.0) as u8;
                     let color = [alpha, alpha, alpha];
@@ -70,6 +79,7 @@ fn render_text(text: &str, frame: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, font: &Fon
         }
     }
 }
+
 
 fn blend_colors(current_color: [u8; 3], new_color: [u8; 3]) -> [u8; 3] {
     let alpha = new_color[0] as f32 / 255.0;
