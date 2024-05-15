@@ -28,7 +28,7 @@ async fn main() {
     }
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_black_video_with_audio])
+        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_video])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -49,6 +49,6 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 // }
 
 #[tauri::command]
-async fn create_black_video_with_audio() -> Result<(), String> {
-    video_gen::create_black_video_with_audio().await.map_err(|e| e.to_string())
+fn create_video() -> Result<(), String> {
+    video_gen::create_video().map_err(|e| e.to_string())
 }

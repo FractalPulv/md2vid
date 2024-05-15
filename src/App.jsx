@@ -19,7 +19,7 @@ function App() {
 
   const createRainbowVideo = async () => {
     try {
-      const response = await invoke("create_black_video_with_audio");
+      const response = await invoke("create_video");
       console.log(response);
     } catch (error) {
       console.error(error);
@@ -101,7 +101,7 @@ function App() {
           onClick={createRainbowVideo}
           className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md"
         >
-          Create Rainbow Video
+          Generate Video
         </button>
         
       </div>
