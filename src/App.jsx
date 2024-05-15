@@ -17,6 +17,15 @@ function App() {
     );
   }, []);
 
+  const createRainbowVideo = async () => {
+    try {
+      const response = await invoke("create_rainbow_video");
+      console.log(response);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const formatDate = (filename) => {
     // Extract the date part of the filename and convert it to a Date object
     const dateString = filename.replace(".md", "");
@@ -88,6 +97,13 @@ function App() {
           <option value="date">Date</option>
           <option value="title">Title</option>
         </select>
+        <button
+          onClick={createRainbowVideo}
+          className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md"
+        >
+          Create Rainbow Video
+        </button>
+        
       </div>
       <div className="grid grid-cols-3 gap-4">
         {sortedFileFrontmatter.map((file) => (

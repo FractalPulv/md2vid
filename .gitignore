@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .env
+
+*.mp4
+*.mov
+*.avi
+
+*.mp3
+*.wav
+*.flac

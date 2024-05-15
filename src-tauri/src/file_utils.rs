@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 use serde_json::{json, Map, Value};
 
 pub fn get_all_files_frontmatter() -> Result<String, String> {
@@ -37,7 +36,7 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
     serde_json::to_string(&frontmatters).map_err(|e| e.to_string())
 }
 
-pub fn extract_frontmatter(file: &str, filename: &str) -> Result<serde_json::Value, serde_json::Error> {
+fn extract_frontmatter(file: &str, filename: &str) -> Result<serde_json::Value, serde_json::Error> {
     let start_delimiter = "---";
     let end_delimiter = "---";
     let start_index = file.find(start_delimiter).unwrap() + start_delimiter.len();
