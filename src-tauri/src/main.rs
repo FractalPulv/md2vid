@@ -11,7 +11,7 @@ fn main() {
     dotenv().ok();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_rainbow_video])
+        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_rainbow_video, create_black_video])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -29,4 +29,9 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 #[tauri::command]
 fn create_rainbow_video() -> Result<(), String> {
     video_gen::create_rainbow_video().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn create_black_video() -> Result<(), String> {
+    video_gen::create_black_video().map_err(|e| e.to_string())
 }

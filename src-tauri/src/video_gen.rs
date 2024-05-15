@@ -30,6 +30,50 @@ pub fn create_rainbow_video() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// make a function where instead of a rainbow background, use a solid black background
+// and the text is white
+pub fn create_black_video() -> Result<(), Box<dyn std::error::Error>> {
+    video_rs::init().unwrap(); // Initialize video-rs
+
+    let settings = Settings::preset_h264_yuv420p(1280, 720, false);
+    let mut encoder = Encoder::new(Path::new("black.mp4"), settings)?;
+
+    let duration: Time = Time::from_nth_of_a_second(24);
+    let mut position = Time::zero();
+    let title = "Black Title"; // Define your title here
+
+    for i in 0..256 {
+        let frame = black_frame(i as f32 / 256.0, title); // Pass the title to the function
+
+        encoder.encode(&frame, position)?;
+
+        position = position.aligned_with(duration).add();
+    }
+
+    encoder.finish()?;
+
+    Ok(())
+}
+
+fn black_frame(p: f32, title: &str) -> Array3<u8> {
+    // Load a font
+    let font_data = include_bytes!("../assets/Helvetica.ttf"); // Replace with your font file path
+    let font = Font::try_from_bytes(font_data as &[u8]).unwrap();
+    let scale = Scale::uniform(48.0); // Adjust the font size as needed
+
+    // Generate the black frame
+    let rgb = [0, 0, 0];
+
+    // Create a mutable image buffer for drawing
+    let mut frame = ImageBuffer::from_fn(1280, 720, |x, y| Rgb([rgb[0], rgb[1], rgb[2]]));
+
+    // Render text onto the image buffer
+    render_text(title, &mut frame, &font, scale);
+
+    // Convert the image buffer to ndarray::Array3<u8>
+    Array3::from_shape_vec((720, 1280, 3), frame.into_raw()).unwrap_or_else(|_| panic!("Failed to convert frame"))
+}
+
 fn rainbow_frame(p: f32, title: &str) -> Array3<u8> {
     // Load a font
     let font_data = include_bytes!("../assets/Helvetica.ttf"); // Replace with your font file path

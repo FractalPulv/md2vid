@@ -19,7 +19,7 @@ function App() {
 
   const createRainbowVideo = async () => {
     try {
-      const response = await invoke("create_rainbow_video");
+      const response = await invoke("create_black_video");
       console.log(response);
     } catch (error) {
       console.error(error);
