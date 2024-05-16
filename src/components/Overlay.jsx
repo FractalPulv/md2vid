@@ -33,6 +33,28 @@ const Overlay = ({ file, onClick }) => {
     }
   };
 
+
+// //read_file_and_extract_frontmatter
+// #[tauri::command]
+// async fn read_file_and_extract_frontmatter(path: &str) -> Result<String, String> {
+//     file_utils::read_file_and_extract_frontmatter(path).await.map_err(|e| e.to_string())
+// }
+
+const getTextContent = async () => {
+  console.log(file.filepath);
+  if (!file || !file.filepath) {
+    console.error('File or file path is not defined');
+    return;
+  }
+
+  try {
+    const response = await invoke("read_file_and_extract_frontmatter", { path: file.filepath });
+    console.log(response);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
   useEffect(() => {
     let unlisten;
 
@@ -168,6 +190,13 @@ const Overlay = ({ file, onClick }) => {
         >
           Generate Video
         </button>
+        <button
+          onClick={getTextContent}
+          className="bg-blue-500 text-white px-3 py-2 rounded-md m-10"
+        >
+          Get Text Content
+        </button>
+
         <div className="progress-bar">
           <div
             className="progress-bar-fill"
