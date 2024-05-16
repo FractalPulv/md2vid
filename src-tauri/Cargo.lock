@@ -81,6 +81,7 @@ dependencies = [
  "dotenv",
  "image 0.25.1",
  "ndarray",
+ "rayon",
  "rusttype",
  "serde",
  "serde_json",

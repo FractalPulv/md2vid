@@ -7,6 +7,7 @@ use rusttype::{Font, Scale};
 use tauri::Window;
 use tokio::task;
 use std::error::Error;
+use tokio::process::Command;
 
 pub async fn create_video(window: Window) -> Result<(), Box<dyn Error + Send + Sync>> {
     video_rs::init().unwrap(); // Initialize video-rs
@@ -22,6 +23,8 @@ pub async fn create_video(window: Window) -> Result<(), Box<dyn Error + Send + S
         let duration: Time = Time::from_nth_of_a_second(24);
         let mut position = Time::zero();
 
+        let start_time = std::time::Instant::now(); // Start measuring time
+
         for i in 0..256 {
             let frame = black_frame(i as f32 / 256.0, title)?; // Pass the title to the function
         
@@ -30,14 +33,62 @@ pub async fn create_video(window: Window) -> Result<(), Box<dyn Error + Send + S
             position = position.aligned_with(duration).add();
         
             // Emit a progress event
-            println!("Emitting progress: {}", (i + 1) as f64 / 256.0 * 100.0);
-            window.emit("progress", Some((i + 1) as f64 / 256.0 * 100.0))?;
+            let progress = (i + 1) as f64 / 256.0 * 100.0;
+            println!("Emitting progress: {}", progress);
+            window.emit("progress", Some(progress))?;
         }
 
         encoder.finish()?;
+        
+        let elapsed_time = start_time.elapsed(); // Calculate elapsed time
+        println!("Total time taken: {:?}", elapsed_time);
+
         Ok::<(), Box<dyn Error + Send + Sync>>(())
     })
     .await??;
+
+    Ok(())
+}
+
+pub async fn create_video_with_ffmpeg(window: Window) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // Define text sentences
+    let sentences = vec![
+        "This is the first sentence.",
+        "This is the second sentence.",
+        "This is the third sentence.",
+    ];
+
+    // Iterate over each sentence and generate a video
+    for (i, sentence) in sentences.iter().enumerate() {
+        // Execute FFmpeg command asynchronously
+        let command = Command::new("ffmpeg")
+            .args(&[
+                "-y", // Overwrite output files without asking
+                "-f", "lavfi", // Input format
+                "-i", "color=color=black:size=1280x720", // Input video with black background
+                "-vf", &format!(
+                    "drawtext=fontfile=Vera.ttf:fontsize=24:fontcolor=white:text='{}':x=(w-text_w)/2:y=(h-text_h)/2,fade=t=in:st=0:d=1,fade=t=out:st=4:d=1", // Text drawing with fade effects
+                    sentence // Insert sentence text dynamically
+                ),
+                "-t", "5", // Output duration (5 seconds)
+                "-b:v", "5M", // Video bitrate
+                "-preset", "slow", // Encoding preset for better quality
+                "output.mp4", // Output file name
+            ])
+            .output()
+            .await
+            .expect("Failed to execute FFmpeg command");
+
+        // Check if FFmpeg command execution was successful
+        if command.status.success() {
+            // Emit progress event
+            let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
+            println!("Emitting progress: {}", progress);
+            window.emit("progress", Some(progress)).expect("Failed to emit progress event");
+        } else {
+            eprintln!("Error: {}", String::from_utf8_lossy(&command.stderr));
+        }
+    }
 
     Ok(())
 }

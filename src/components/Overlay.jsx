@@ -26,7 +26,7 @@ const Overlay = ({ file, onClick }) => {
 
   const createVideo = async () => {
     try {
-      const response = await invoke("create_video");
+      const response = await invoke("create_video_with_ffmpeg");
       console.log(response);
     } catch (error) {
       console.error(error);
@@ -168,7 +168,12 @@ const Overlay = ({ file, onClick }) => {
         >
           Generate Video
         </button>
-        <progress value={progress} max="100"></progress>
+        <div className="progress-bar">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
         {progress === 100 && videoReady && (
           <div
             style={{
@@ -182,7 +187,7 @@ const Overlay = ({ file, onClick }) => {
             }}
           >
             <video
-              src="./src-tauri/video.mp4"
+              src="./src-tauri/output.mp4"
               controls
               allowFullScreen
               style={{
@@ -196,6 +201,23 @@ const Overlay = ({ file, onClick }) => {
         )}
       </div>
       <style>{moveImageAnimation}</style>
+      <style>
+        {`
+          .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            overflow: hidden;
+          }
+          
+          .progress-bar-fill {
+            height: 100%;
+            background-color: #4a90e2;
+            transition: width 0.3s ease-in-out;
+          }
+        `}
+      </style>
     </div>
   );
 };
