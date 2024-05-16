@@ -6,31 +6,84 @@ use image::{ImageBuffer, Rgb};
 use rusttype::{Font, Scale};
 use tauri::Window;
 use tokio::task;
-use std::error::Error;
-use tokio::process::Command;
-use std::fs;
 
-pub async fn create_video_with_ffmpeg(window: Window, paragraph: &str, delete_temp_videos: bool) -> Result<(), Box<dyn Error + Send + Sync>> {
+use tokio::process::Command;
+
+use std::{error::Error, fs};
+
+
+pub async fn create_video_with_ffmpeg(
+    window: Window,
+    paragraph: &str,
+    delete_temp_videos: bool,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Split the paragraph into sentences
     let sentences: Vec<&str> = paragraph.split(". ").collect();
 
     let mut file_list = String::new();
+
     // Iterate over each sentence and generate a video
     for (i, sentence) in sentences.iter().enumerate() {
-        // Execute FFmpeg command asynchronously
+        // Modify the sentence to include text color if it's wrapped with double square brackets
+        let sentence_with_color = if sentence.contains("[[") && sentence.contains("]]") {
+            // Extracting text inside double square brackets and wrapping it with ass style
+            let colored_sentence = sentence
+                .replace("[[", "{\\c&H800080&}") // Purple color
+                .replace("]]", "{\\c&HFFFFFF&}"); // Reset color to white after the colored text
+            colored_sentence
+        } else {
+            // If no coloring is needed, use the original sentence
+            sentence.to_string()
+        };
+
+        // Generate .ass file content for this sentence
+        let ass_content = format!(
+            r#"[Script Info]
+        Title: Default Aegisub file
+        ScriptType: v4.00+
+        WrapStyle: 0
+        PlayResX: 1280
+        PlayResY: 720
+        ScaledBorderAndShadow: yes
+        YCbCr Matrix: None
+        
+        [V4+ Styles]
+        Format: Name, Fontname, Fontsize, PrimaryColour, Alignment
+        Style: Default, Vera, 24, &HFFFFFF, 8
+        
+        [Events]
+        Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+        Dialogue: 0,0:00:00.00,0:00:05.00,Default,,320,320,355,,{}
+        "#,
+            sentence_with_color
+        );
+        
+        
+
+        // Write .ass file for this sentence
+        let ass_file_name = format!("sentence{}.ass", i);
+        fs::write(&ass_file_name, ass_content)?;
+
+        // Execute FFmpeg command asynchronously with the .ass file
         let command = Command::new("ffmpeg")
             .args(&[
                 "-y", // Overwrite output files without asking
-                "-f", "lavfi", // Input format
-                "-i", "color=color=black:size=1280x720", // Input video with black background
-                "-vf", &format!(
-                    "drawtext=fontfile=Vera.ttf:fontsize=24:fontcolor=white:text='{}':x=(w-text_w)/2:y=(h-text_h)/2,fade=t=in:st=0:d=1,fade=t=out:st=4:d=1", // Text drawing with fade effects
-                    sentence.trim() // Insert sentence text dynamically and trim any leading/trailing whitespace
+                "-f",
+                "lavfi", // Input format
+                "-i",
+                "color=color=black:size=1280x720", // Input video with black background
+                "-vf",
+                &format!(
+                    "ass={}:fontsdir=./", // Use the generated .ass file
+                    &ass_file_name
                 ),
-                "-t", "5", // Output duration (5 seconds)
-                "-b:v", "5M", // Video bitrate
-                "-preset", "slow", // Encoding preset for better quality
-                "-y", // Overwrite output file without asking
+                "-t",
+                "5",    // Output duration (5 seconds)
+                "-b:v",
+                "5M",   // Video bitrate
+                "-preset",
+                "slow", // Encoding preset for better quality
+                "-y",   // Overwrite output file without asking
                 &format!("output{}.mp4", i), // Output file name with index
             ])
             .output()
@@ -47,20 +100,27 @@ pub async fn create_video_with_ffmpeg(window: Window, paragraph: &str, delete_te
         } else {
             eprintln!("Error: {}", String::from_utf8_lossy(&command.stderr));
         }
+
+        // Delete the .ass file
+        fs::remove_file(&ass_file_name).expect("Failed to delete .ass file");
     }
 
     // Write the file list to a text file
-    fs::write("file_list.txt", file_list).expect("Unable to write file");
+    fs::write("file_list.txt", file_list)?;
 
     // Use FFmpeg to concatenate the videos
     let command = Command::new("ffmpeg")
         .args(&[
-            "-f", "concat", // Specify the concat demuxer
-            "-safe", "0", // Allow unsafe file paths
-            "-i", "file_list.txt", // Input file list
-            "-c", "copy", // Copy the input streams directly, without re-encoding
-            "-y", // Overwrite output file without asking
-            "output.mp4" // Output file name
+            "-f",
+            "concat",       // Specify the concat demuxer
+            "-safe",
+            "0",            // Allow unsafe file paths
+            "-i",
+            "file_list.txt",// Input file list
+            "-c",
+            "copy",         // Copy the input streams directly, without re-encoding
+            "-y",           // Overwrite output file without asking
+            "output.mp4",   // Output file name
         ])
         .output()
         .await

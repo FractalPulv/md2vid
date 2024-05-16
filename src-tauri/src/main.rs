@@ -52,5 +52,5 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 
 #[tauri::command]
 async fn create_video_with_ffmpeg(window: Window) -> Result<(), String> {
-    video_gen::create_video_with_ffmpeg(window, "This is a test paragraph. This is another test paragraph.", true).await.map_err(|e| e.to_string())
+    video_gen::create_video_with_ffmpeg(window, "This is a test paragraph. This is another [[test]] paragraph.", true).await.map_err(|e| e.to_string())
 }
