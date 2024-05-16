@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
+import { invoke } from "@tauri-apps/api";
+import { listen } from "@tauri-apps/api/event";
 
 const Overlay = ({ file, onClick }) => {
   const [visible, setVisible] = useState(false);
   const imageRef = useRef(null);
+  const [progress, setProgress] = useState(0);
+  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     setVisible(true);
@@ -20,9 +24,35 @@ const Overlay = ({ file, onClick }) => {
     return null;
   }
 
-  const createVideo = () => {
-    // Get the image element
+  const createVideo = async () => {
+    try {
+      const response = await invoke("create_video");
+      console.log(response);
+    } catch (error) {
+      console.error(error);
+    }
   };
+
+  useEffect(() => {
+    let unlisten;
+
+    listen("progress", (event) => {
+      setProgress(event.payload);
+      if (event.payload === 100) {
+        setTimeout(() => {
+          setVideoReady(true);
+        }, 1000);
+      }
+    }).then((unlistenFunc) => {
+      unlisten = unlistenFunc;
+    });
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
 
   const formatDate = (filename) => {
     // Extract the date part of the filename and convert it to a Date object
@@ -82,6 +112,14 @@ const Overlay = ({ file, onClick }) => {
     animationPlayState: "running",
   };
 
+  const videoContainerStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    zIndex: 2,
+  };
+
   return (
     <div
       className={`fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center transition-opacity duration-300 ${
@@ -130,6 +168,32 @@ const Overlay = ({ file, onClick }) => {
         >
           Generate Video
         </button>
+        <progress value={progress} max="100"></progress>
+        {progress === 100 && videoReady && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              zIndex: 2,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <video
+              src="./src-tauri/video.mp4"
+              controls
+              allowFullScreen
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+              }}
+            />
+          </div>
+        )}
       </div>
       <style>{moveImageAnimation}</style>
     </div>
