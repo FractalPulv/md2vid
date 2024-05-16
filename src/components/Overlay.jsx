@@ -187,7 +187,7 @@ const Overlay = ({ file, onClick }) => {
             }}
           >
             <video
-              src="./src-tauri/output.mp4"
+              src="./src-tauri/final_output.mp4"
               controls
               allowFullScreen
               style={{

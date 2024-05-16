@@ -44,6 +44,7 @@ pub async fn create_video_with_ffmpeg(
 
     write_file_list(&file_list)?;
     concatenate_videos().await?;
+    merge_audio_with_video().await?;
 
     if delete_temp_videos {
         delete_temporary_videos(&sentences)?;
@@ -66,7 +67,7 @@ fn generate_ass_content(sentence: &str) -> Result<String, Box<dyn Error + Send +
         
         [V4+ Styles]
         Format: Name, Fontname, Fontsize, PrimaryColour, Alignment
-        Style: Default, Vera, 24, &HFFFFFF, 8
+        Style: Default, Vera, 42, &HFFFFFF, 8
         
         [Events]
         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -156,6 +157,40 @@ async fn concatenate_videos() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 }
 
+async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let command_output = Command::new("ffmpeg")
+        .args(&[
+            "-i",
+            "output.mp4",
+            "-i",
+            "./output/audio.mp3",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-strict",
+            "experimental",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-shortest",
+            "final_output.mp4",
+        ])
+        .output()
+        .await?;
+
+    if command_output.status.success() {
+        println!("Audio merged with video successfully!");
+        Ok(())
+    } else {
+        eprintln!(
+            "Error: {}",
+            String::from_utf8_lossy(&command_output.stderr)
+        );
+        Err("Failed to merge audio with video".into())
+    }
+}
 
 fn delete_temporary_videos(
     sentences: &[&str],
