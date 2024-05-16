@@ -49,14 +49,16 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 //     video_gen::create_rainbow_video().map_err(|e| e.to_string())
 // }
 
-
+// take path and window
 #[tauri::command]
-async fn create_video_with_ffmpeg(window: Window) -> Result<(), String> {
-    video_gen::create_video_with_ffmpeg(window, "This is a test paragraph. This is another [[test]] paragraph.", true).await.map_err(|e| e.to_string())
+async fn create_video_with_ffmpeg(path: &str, window: Window) -> Result<(), String> {
+    let frontmatter = file_utils::extract_frontmatter(&path).map_err(|e| e.to_string())?;
+    let text_content = file_utils::extract_text_content(&path).map_err(|e| e.to_string())?;
+    video_gen::create_video_with_ffmpeg(window, &frontmatter, &text_content, true).await.map_err(|e| e.to_string())
 }
 
 //read_file_and_extract_frontmatter
 #[tauri::command]
 async fn read_file_and_extract_frontmatter(path: &str) -> Result<String, String> {
-    file_utils::read_file_and_extract_frontmatter(path).await.map_err(|e| e.to_string())
+    file_utils::read_file_and_extract_frontmatter(path).map_err(|e| e.to_string())
 }

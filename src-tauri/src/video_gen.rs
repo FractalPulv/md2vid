@@ -4,13 +4,30 @@ use tauri::Window;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
-    paragraph: &str,
+    frontmatter: &str,
+    text_content: &str,
     delete_temp_videos: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let sentences: Vec<&str> = paragraph.split(". ").collect();
+    println!("===================================");
+    println!("Frontmatter: {}", frontmatter);
+    println!("Text content: {}", text_content);
+    println!("===================================");
+
+    let sentences: Vec<&str> = text_content.split(". ").collect();
     let mut file_list = String::new();
 
     for (i, sentence) in sentences.iter().enumerate() {
+
+        println!("xxxxxxxxxxxxxxxxxxxxxxxx");
+        println!("Sentence pre-trim {}", sentence);
+        
+        // there's a bug with paragraphs having a lot of white space before the sentence
+        // for now trim this starting white space
+        let sentence = sentence.trim();
+
+        println!("Sentence post-trim {}", sentence);
+        println!("xxxxxxxxxxxxxxxxxxxxxxxx");
+
         let sentence_with_color = if sentence.contains("[[") && sentence.contains("]]") {
             let colored_sentence = sentence
                 .replace("[[", "{\\c&H800080&}")
@@ -44,6 +61,12 @@ pub async fn create_video_with_ffmpeg(
 
     write_file_list(&file_list)?;
     concatenate_videos().await?;
+    
+    // Check if concatenated video exists
+    if !fs::metadata("output.mp4").is_ok() {
+        return Err("Concatenated video (output.mp4) not found".into());
+    }
+
     merge_audio_with_video().await?;
 
     if delete_temp_videos {
@@ -147,10 +170,11 @@ async fn concatenate_videos() -> Result<(), Box<dyn Error + Send + Sync>> {
         .await?;
 
     if command_output.status.success() {
+        println!("Videos concatenated successfully!");
         Ok(())
     } else {
         eprintln!(
-            "Error: {}",
+            "Error concatenating videos: {}",
             String::from_utf8_lossy(&command_output.stderr)
         );
         Err("Failed to concatenate videos".into())
@@ -160,6 +184,7 @@ async fn concatenate_videos() -> Result<(), Box<dyn Error + Send + Sync>> {
 async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
     let command_output = Command::new("ffmpeg")
         .args(&[
+            "-y", // Allow overwrite
             "-i",
             "output.mp4",
             "-i",
@@ -185,7 +210,7 @@ async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
         Ok(())
     } else {
         eprintln!(
-            "Error: {}",
+            "Error merging audio with video: {}",
             String::from_utf8_lossy(&command_output.stderr)
         );
         Err("Failed to merge audio with video".into())

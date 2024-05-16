@@ -18,7 +18,7 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
         if path.is_file() {
             let file = fs::read_to_string(&path).map_err(|e| e.to_string())?;
             let filename = path.file_name().unwrap().to_string_lossy().to_string();
-            match extract_frontmatter(&file, &filename, &path) {
+            match extract_frontmatter_and_insert_json(&file, &filename, &path) {
                 Ok(frontmatter) => {
                     println!("Frontmatter: {:?}", frontmatter);
                     frontmatters.push(frontmatter);
@@ -37,7 +37,7 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
     serde_json::to_string(&frontmatters).map_err(|e| e.to_string())
 }
 
-fn extract_frontmatter(file: &str, filename: &str, path: &std::path::Path) -> Result<serde_json::Value, serde_json::Error> {
+fn extract_frontmatter_and_insert_json(file: &str, filename: &str, path: &std::path::Path) -> Result<serde_json::Value, serde_json::Error> {
     let start_delimiter = "---";
     let end_delimiter = "---";
     let start_index = file.find(start_delimiter).unwrap() + start_delimiter.len();
@@ -66,6 +66,18 @@ fn extract_frontmatter(file: &str, filename: &str, path: &std::path::Path) -> Re
     Ok(Value::Object(frontmatter_map))
 }
 
+// make a similar function to extract_frontmatter_and_insert_json but the only input should be the path and it should not alter any json
+// the function should return the frontmatter as a string
+pub fn extract_frontmatter(path: &str) -> Result<String, String> {
+    let file = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let start_delimiter = "---";
+    let end_delimiter = "---";
+    let start_index = file.find(start_delimiter).unwrap() + start_delimiter.len();
+    let end_index = file[start_index..].find(start_delimiter).map(|i| start_index + i).unwrap_or_else(|| file.len());
+    let frontmatter_str = &file[start_index..end_index].trim();
+    Ok(frontmatter_str.to_string())
+}
+
 fn parse_value(value: &str) -> Value {
     // Try to parse as a boolean
     if let Ok(boolean) = value.parse::<bool>() {
@@ -85,11 +97,11 @@ fn parse_value(value: &str) -> Value {
 // important: in each text file there is dataviewjs code which is surrounded by triple backticks (```)
 // only store and print the text AFTER the dataviewjs code (ie. the text after the last set of triple backticks)
 // if there is no dataviewjs code in the file, just print the entire file content as the text content
-pub async fn read_file_and_extract_frontmatter(path: &str) -> Result<String, String> {
+pub fn read_file_and_extract_frontmatter(path: &str) -> Result<String, String> {
     let file = fs::read_to_string(path).map_err(|e| e.to_string())?;
     let filename = path.split('/').last().unwrap();
-    let frontmatter = extract_frontmatter(&file, filename, std::path::Path::new(path)).map_err(|e| e.to_string())?;
-    let text_content = extract_text_content(&file);
+    let frontmatter = extract_frontmatter(path).map_err(|e| e.to_string())?;
+    let text_content = extract_text_content(path).map_err(|e| e.to_string())?;
     println!("===============================");
     println!("Frontmatter: {:?}", frontmatter);
     println!("Text content: {}", text_content);
@@ -97,9 +109,10 @@ pub async fn read_file_and_extract_frontmatter(path: &str) -> Result<String, Str
     Ok(text_content)
 }
 
-pub fn extract_text_content(file: &str) -> String {
+pub fn extract_text_content(path: &str) -> Result<String, String> {
+    let file = fs::read_to_string(path).map_err(|e| e.to_string())?;
     let dataviewjs_delimiter = "```";
     let dataviewjs_start = file.rfind(dataviewjs_delimiter).map(|i| i + dataviewjs_delimiter.len()).unwrap_or(0);
     let text_content = &file[dataviewjs_start..].trim();
-    text_content.to_string()
+    Ok(text_content.to_string())
 }

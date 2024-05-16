@@ -24,14 +24,18 @@ const Overlay = ({ file, onClick }) => {
     return null;
   }
 
+  // async fn create_video_with_ffmpeg(path: &str, window: Window) -> Result<(), String> {
+
   const createVideo = async () => {
     try {
-      const response = await invoke("create_video_with_ffmpeg");
+      const response = await invoke("create_video_with_ffmpeg", { path: file.filepath });
       console.log(response);
-    } catch (error) {
+    }
+    catch (error) {
       console.error(error);
     }
   };
+
 
 
 // //read_file_and_extract_frontmatter
@@ -63,7 +67,7 @@ const getTextContent = async () => {
       if (event.payload === 100) {
         setTimeout(() => {
           setVideoReady(true);
-        }, 1000);
+        }, 5000);
       }
     }).then((unlistenFunc) => {
       unlisten = unlistenFunc;
