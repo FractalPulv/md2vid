@@ -1,6 +1,7 @@
 use std::{error::Error, fs};
 use tokio::process::Command;
 use tauri::Window;
+use regex::Regex;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
@@ -13,7 +14,7 @@ pub async fn create_video_with_ffmpeg(
     println!("Text content: {}", text_content);
     println!("===================================");
 
-    let sentences: Vec<&str> = text_content.split(". ").collect();
+    let sentences: Vec<&str> = text_content.split(". ").flat_map(|s| s.split(".\n")).collect();
     let mut file_list = String::new();
 
     for (i, sentence) in sentences.iter().enumerate() {
@@ -28,14 +29,8 @@ pub async fn create_video_with_ffmpeg(
         println!("Sentence post-trim {}", sentence);
         println!("xxxxxxxxxxxxxxxxxxxxxxxx");
 
-        let sentence_with_color = if sentence.contains("[[") && sentence.contains("]]") {
-            let colored_sentence = sentence
-                .replace("[[", "{\\c&H800080&}")
-                .replace("]]", "{\\c&HFFFFFF&}");
-            colored_sentence
-        } else {
-            sentence.to_string()
-        };
+       // Process the sentence to handle text with and without aliases within double square brackets
+       let sentence_with_color = process_sentence(sentence);
 
         let ass_content = generate_ass_content(&sentence_with_color)?;
         let ass_file_name = format!("sentence{}.ass", i);
@@ -76,6 +71,23 @@ pub async fn create_video_with_ffmpeg(
 
     Ok(())
 }
+
+// Function to process sentence with and without aliases within double square brackets
+fn process_sentence(sentence: &str) -> String {
+    let re = Regex::new(r"\[\[(.*?)\]\]").unwrap();
+
+    let result = re.replace_all(sentence, |caps: &regex::Captures| {
+        let text = &caps[1];
+        if let Some((_, alias)) = text.split_once(" |") {
+            format!("{{\\c&H800080&}}{}{{\\c&HFFFFFF&}}", alias.trim())
+        } else {
+            format!("{{\\c&H800080&}}{}{{\\c&HFFFFFF&}}", text)
+        }
+    });
+
+    result.into_owned()
+}
+
 
 fn generate_ass_content(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
     let ass_content = format!(
