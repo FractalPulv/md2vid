@@ -1,44 +1,61 @@
-use std::path::Path;
-use ndarray::Array3;
-use video_rs::encode::{Encoder, Settings};
-use video_rs::time::Time;
-use image::{ImageBuffer, Rgb};
-use rusttype::{Font, Scale};
-use tauri::Window;
-use tokio::task;
-
-use tokio::process::Command;
-
 use std::{error::Error, fs};
-
+use tokio::process::Command;
+use tauri::Window;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
     paragraph: &str,
     delete_temp_videos: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Split the paragraph into sentences
     let sentences: Vec<&str> = paragraph.split(". ").collect();
-
     let mut file_list = String::new();
 
-    // Iterate over each sentence and generate a video
     for (i, sentence) in sentences.iter().enumerate() {
-        // Modify the sentence to include text color if it's wrapped with double square brackets
         let sentence_with_color = if sentence.contains("[[") && sentence.contains("]]") {
-            // Extracting text inside double square brackets and wrapping it with ass style
             let colored_sentence = sentence
-                .replace("[[", "{\\c&H800080&}") // Purple color
-                .replace("]]", "{\\c&HFFFFFF&}"); // Reset color to white after the colored text
+                .replace("[[", "{\\c&H800080&}")
+                .replace("]]", "{\\c&HFFFFFF&}");
             colored_sentence
         } else {
-            // If no coloring is needed, use the original sentence
             sentence.to_string()
         };
 
-        // Generate .ass file content for this sentence
-        let ass_content = format!(
-            r#"[Script Info]
+        let ass_content = generate_ass_content(&sentence_with_color)?;
+        let ass_file_name = format!("sentence{}.ass", i);
+        write_ass_file(&ass_file_name, &ass_content)?;
+
+        // Await the output here
+        let command_output = execute_ffmpeg_command(&ass_file_name, i).await?;
+
+        // Check the status of the command
+        if command_output.status.success() {
+            let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
+            emit_progress_event(&window, progress)?;
+            file_list.push_str(&format!("file 'output{}.mp4'\n", i));
+        } else {
+            eprintln!(
+                "Error: {}",
+                String::from_utf8_lossy(&command_output.stderr)
+            );
+        }
+
+        delete_ass_file(&ass_file_name)?;
+    }
+
+    write_file_list(&file_list)?;
+    concatenate_videos().await?;
+
+    if delete_temp_videos {
+        delete_temporary_videos(&sentences)?;
+        delete_file_list()?;
+    }
+
+    Ok(())
+}
+
+fn generate_ass_content(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let ass_content = format!(
+        r#"[Script Info]
         Title: Default Aegisub file
         ScriptType: v4.00+
         WrapStyle: 0
@@ -53,91 +70,103 @@ pub async fn create_video_with_ffmpeg(
         
         [Events]
         Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-        Dialogue: 0,0:00:00.00,0:00:05.00,Default,,320,320,355,,{}
-        "#,
-            sentence_with_color
-        );
-        
-        
+        Dialogue: 0,0:00:00.00,0:00:05.00,Default,,320,320,355,,{}"#,
+        sentence
+    );
 
-        // Write .ass file for this sentence
-        let ass_file_name = format!("sentence{}.ass", i);
-        fs::write(&ass_file_name, ass_content)?;
+    Ok(ass_content)
+}
 
-        // Execute FFmpeg command asynchronously with the .ass file
-        let command = Command::new("ffmpeg")
-            .args(&[
-                "-y", // Overwrite output files without asking
-                "-f",
-                "lavfi", // Input format
-                "-i",
-                "color=color=black:size=1280x720", // Input video with black background
-                "-vf",
-                &format!(
-                    "ass={}:fontsdir=./", // Use the generated .ass file
-                    &ass_file_name
-                ),
-                "-t",
-                "5",    // Output duration (5 seconds)
-                "-b:v",
-                "5M",   // Video bitrate
-                "-preset",
-                "slow", // Encoding preset for better quality
-                "-y",   // Overwrite output file without asking
-                &format!("output{}.mp4", i), // Output file name with index
-            ])
-            .output()
-            .await
-            .expect("Failed to execute FFmpeg command");
+fn write_ass_file(file_name: &str, content: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fs::write(file_name, content)?;
+    Ok(())
+}
 
-        // Check if FFmpeg command execution was successful
-        if command.status.success() {
-            // Emit progress event
-            let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
-            println!("Emitting progress: {}", progress);
-            window.emit("progress", Some(progress)).expect("Failed to emit progress event");
-            file_list.push_str(&format!("file 'output{}.mp4'\n", i));
-        } else {
-            eprintln!("Error: {}", String::from_utf8_lossy(&command.stderr));
-        }
-
-        // Delete the .ass file
-        fs::remove_file(&ass_file_name).expect("Failed to delete .ass file");
-    }
-
-    // Write the file list to a text file
-    fs::write("file_list.txt", file_list)?;
-
-    // Use FFmpeg to concatenate the videos
-    let command = Command::new("ffmpeg")
+async fn execute_ffmpeg_command(
+    ass_file_name: &str,
+    index: usize,
+) -> Result<std::process::Output, Box<dyn Error + Send + Sync>> {
+    let command_output = Command::new("ffmpeg")
         .args(&[
+            "-y",
             "-f",
-            "concat",       // Specify the concat demuxer
-            "-safe",
-            "0",            // Allow unsafe file paths
+            "lavfi",
             "-i",
-            "file_list.txt",// Input file list
-            "-c",
-            "copy",         // Copy the input streams directly, without re-encoding
-            "-y",           // Overwrite output file without asking
-            "output.mp4",   // Output file name
+            "color=color=black:size=1280x720",
+            "-vf",
+            &format!("ass={}:fontsdir=./", ass_file_name),
+            "-t",
+            "5",
+            "-b:v",
+            "5M",
+            "-preset",
+            "slow",
+            "-y",
+            &format!("output{}.mp4", index),
         ])
         .output()
-        .await
-        .expect("Failed to execute FFmpeg command");
+        .await?;
 
-    // Check if FFmpeg command execution was successful
-    if !command.status.success() {
-        eprintln!("Error: {}", String::from_utf8_lossy(&command.stderr));
+    Ok(command_output)
+}
+
+fn emit_progress_event(
+    window: &Window,
+    progress: f64,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    window.emit("progress", Some(progress))?;
+    Ok(())
+}
+
+fn delete_ass_file(file_name: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fs::remove_file(file_name)?;
+    Ok(())
+}
+
+fn write_file_list(file_list: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fs::write("file_list.txt", file_list)?;
+    Ok(())
+}
+
+async fn concatenate_videos() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let command_output = Command::new("ffmpeg")
+        .args(&[
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            "file_list.txt",
+            "-c",
+            "copy",
+            "-y",
+            "output.mp4",
+        ])
+        .output()
+        .await?;
+
+    if command_output.status.success() {
+        Ok(())
+    } else {
+        eprintln!(
+            "Error: {}",
+            String::from_utf8_lossy(&command_output.stderr)
+        );
+        Err("Failed to concatenate videos".into())
     }
+}
 
-    // Delete temporary videos if specified
-    if delete_temp_videos {
-        for (i, _) in sentences.iter().enumerate() {
-            fs::remove_file(format!("output{}.mp4", i)).expect("Failed to delete temporary video");
-        }
-        fs::remove_file("file_list.txt").expect("Failed to delete file list");
+
+fn delete_temporary_videos(
+    sentences: &[&str],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    for (i, _) in sentences.iter().enumerate() {
+        fs::remove_file(format!("output{}.mp4", i))?;
     }
+    Ok(())
+}
 
+fn delete_file_list() -> Result<(), Box<dyn Error + Send + Sync>> {
+    fs::remove_file("file_list.txt")?;
     Ok(())
 }
