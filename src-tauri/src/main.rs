@@ -3,6 +3,7 @@
 
 use dotenv::dotenv;
 use std::error::Error; // Import the Error trait
+use tauri::Window;
 
 // Import the file_utils and video_gen modules
 mod file_utils;
@@ -28,9 +29,9 @@ async fn main() {
     }
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_video])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    .invoke_handler(tauri::generate_handler![greet, get_all_files_frontmatter, create_video])
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
 }
 
 #[tauri::command]
@@ -49,6 +50,6 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 // }
 
 #[tauri::command]
-fn create_video() -> Result<(), String> {
-    video_gen::create_video().map_err(|e| e.to_string())
+async fn create_video(window: Window) -> Result<(), String> {
+    video_gen::create_video(window).await.map_err(|e| e.to_string())
 }

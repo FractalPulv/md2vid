@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
 import { invoke } from "@tauri-apps/api";
+import { listen } from '@tauri-apps/api/event';
+
 import useFileLoader from "./hooks/useFileLoader";
 import Overlay from "./components/Overlay"; // Import the Overlay component
 
@@ -17,7 +17,12 @@ function App() {
     );
   }, []);
 
-  const createRainbowVideo = async () => {
+  listen('progress', (event) => {
+    // console.log('Event received:', event);
+    console.log('Progress:', event.payload); // Logs the progress percentage
+  });
+
+  const createVideo = async () => {
     try {
       const response = await invoke("create_video");
       console.log(response);
@@ -98,7 +103,7 @@ function App() {
           <option value="title">Title</option>
         </select>
         <button
-          onClick={createRainbowVideo}
+          onClick={createVideo}
           className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md"
         >
           Generate Video
