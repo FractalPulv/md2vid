@@ -5,6 +5,7 @@ use regex::Regex;
 use std::path::Path;
 
 use crate::yt_downloader;
+use crate::log_utils;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
@@ -18,10 +19,15 @@ pub async fn create_video_with_ffmpeg(
     // println!("Text content: {}", text_content);
     // println!("===================================");
 
-    let old_audio_path = "./temp/audio.mp3";
-    if Path::new(old_audio_path).exists() {
-        fs::remove_file(old_audio_path)?;
-    }
+    log_utils::print_pretty_log("Removing old audio file...", "blue");
+    
+
+    // let old_audio_path = "./temp/audio.mp3";
+    // if Path::new(old_audio_path).exists() {
+    //     fs::remove_file(old_audio_path)?;
+    // }
+
+    log_utils::print_pretty_log("Downloading YouTube video as MP3...", "blue");
 
     let download_result = yt_downloader::download_youtube_as_mp3(youtube_url);
     match download_result {
@@ -31,6 +37,8 @@ pub async fn create_video_with_ffmpeg(
             return Err(e.into());
         }
     }
+
+    log_utils::print_pretty_log("Generating videos for each sentence...", "blue");
 
     let sentences: Vec<&str> = text_content.split(". ").flat_map(|s| s.split(".\n")).collect();
     let mut file_list = String::new();
@@ -72,7 +80,12 @@ pub async fn create_video_with_ffmpeg(
         delete_ass_file(&ass_file_name)?;
     }
 
+    log_utils::print_pretty_log("Generate file list...", "blue");
+
     write_file_list(&file_list)?;
+
+    log_utils::print_pretty_log("Concatenating....", "blue");
+
     concatenate_videos().await?;
     
     // Check if concatenated video exists
@@ -219,7 +232,7 @@ async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
             "-i",
             "output.mp4",
             "-i",
-            "./temp/audio.mp3",
+            "./temp_files/audio.mp3",
             "-c:v",
             "copy",
             "-c:a",

@@ -7,6 +7,7 @@ use tauri::Window;
 
 // Import the file_utils and video_gen modules
 mod file_utils;
+mod log_utils;
 mod video_gen;
 mod yt_downloader;
 
