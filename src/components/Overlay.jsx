@@ -67,7 +67,7 @@ const getTextContent = async () => {
       if (event.payload === 100) {
         setTimeout(() => {
           setVideoReady(true);
-        }, 5000);
+        }, 10000);
       }
     }).then((unlistenFunc) => {
       unlisten = unlistenFunc;

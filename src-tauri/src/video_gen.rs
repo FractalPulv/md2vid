@@ -2,17 +2,35 @@ use std::{error::Error, fs};
 use tokio::process::Command;
 use tauri::Window;
 use regex::Regex;
+use std::path::Path;
+
+use crate::yt_downloader;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
     frontmatter: &str,
     text_content: &str,
+    youtube_url: &str,
     delete_temp_videos: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("===================================");
-    println!("Frontmatter: {}", frontmatter);
-    println!("Text content: {}", text_content);
-    println!("===================================");
+    // println!("===================================");
+    // println!("Frontmatter: {}", frontmatter);
+    // println!("Text content: {}", text_content);
+    // println!("===================================");
+
+    let old_audio_path = "./temp/audio.mp3";
+    if Path::new(old_audio_path).exists() {
+        fs::remove_file(old_audio_path)?;
+    }
+
+    let download_result = yt_downloader::download_youtube_as_mp3(youtube_url);
+    match download_result {
+        Ok(_) => println!("Video downloaded successfully"),
+        Err(e) => {
+            println!("Failed to download video: {}", e);
+            return Err(e.into());
+        }
+    }
 
     let sentences: Vec<&str> = text_content.split(". ").flat_map(|s| s.split(".\n")).collect();
     let mut file_list = String::new();
@@ -62,6 +80,7 @@ pub async fn create_video_with_ffmpeg(
         return Err("Concatenated video (output.mp4) not found".into());
     }
 
+    // when merge is done send progress
     merge_audio_with_video().await?;
 
     if delete_temp_videos {
@@ -200,7 +219,7 @@ async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
             "-i",
             "output.mp4",
             "-i",
-            "./output/audio.mp3",
+            "./temp/audio.mp3",
             "-c:v",
             "copy",
             "-c:a",

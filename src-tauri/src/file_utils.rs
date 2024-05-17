@@ -1,6 +1,7 @@
 use std::fs;
 use serde_json::{json, Map, Value};
 use tauri::Window;
+use regex::Regex;
 
 pub fn get_all_files_frontmatter() -> Result<String, String> {
     let dir_path = std::env::var("DIR_PATH").expect("DIR_PATH not found in .env file");
@@ -20,7 +21,7 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
             let filename = path.file_name().unwrap().to_string_lossy().to_string();
             match extract_frontmatter_and_insert_json(&file, &filename, &path) {
                 Ok(frontmatter) => {
-                    println!("Frontmatter: {:?}", frontmatter);
+                    // println!("Frontmatter: {:?}", frontmatter);
                     frontmatters.push(frontmatter);
                     count += 1; // Increment the counter
                 },
@@ -115,4 +116,27 @@ pub fn extract_text_content(path: &str) -> Result<String, String> {
     let dataviewjs_start = file.rfind(dataviewjs_delimiter).map(|i| i + dataviewjs_delimiter.len()).unwrap_or(0);
     let text_content = &file[dataviewjs_start..].trim();
     Ok(text_content.to_string())
+}
+
+
+pub fn extract_youtube_url_from_text_content(text_content: &str) -> Result<String, String> {
+    let re = Regex::new(r#"<iframe.*?src="(.*?)".*?>"#).unwrap();
+    let youtube_match = re.captures(text_content);
+
+    if let Some(captures) = youtube_match {
+        if let Some(youtube_url) = captures.get(1) {
+            let youtube_url = youtube_url.as_str();
+            println!("Youtube URL: (before) {}", youtube_url);
+
+            if let Some(youtube_url) = youtube_url.split("?").next() {
+                if let Some(video_id) = youtube_url.split("/").last() {
+                    let full_youtube_url = format!("https://www.youtube.com/watch?v={}", video_id);
+                    println!("Full Youtube URL: {}", full_youtube_url);
+                    return Ok(full_youtube_url);
+                }
+            }
+        }
+    }
+
+    Err("Failed to extract YouTube URL".to_string())
 }
