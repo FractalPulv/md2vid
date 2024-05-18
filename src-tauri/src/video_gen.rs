@@ -115,6 +115,7 @@ pub async fn create_video_with_ffmpeg(
 fn process_sentence(sentence: &str) -> String {
     let re = Regex::new(r"\[\[(.*?)\]\]").unwrap();
 
+    // If there are double square brackets, remove brackets and make the text purple
     let result = re.replace_all(sentence, |caps: &regex::Captures| {
         let text = &caps[1];
         if let Some((_, alias)) = text.split_once(" |") {
@@ -123,6 +124,26 @@ fn process_sentence(sentence: &str) -> String {
             format!("{{\\c&H800080&}}{}{{\\c&HFFFFFF&}}", text)
         }
     });
+
+    // If the text is wrapped with underscores, make the text italic and green. and then remove the underscores
+    let re = Regex::new(r"_([^_]+)_").unwrap();
+    let result = re.replace_all(&result, |caps: &regex::Captures| {
+        format!("{{\\i1\\c&H00FF00&}}{}{{\\i0\\c&HFFFFFF&}}", &caps[1])
+    });
+
+    // If the text is wrapped with asterisks, make the text bold and red. and then remove the asterisks
+    let re = Regex::new(r"\*([^*]+)\*").unwrap();
+    let result = re.replace_all(&result, |caps: &regex::Captures| {
+        format!("{{\\b1\\c&HFF0000&}}{}{{\\b0\\c&HFFFFFF&}}", &caps[1])
+    });
+
+    // If the text is wrapped with single backticks (`), make the text monospace and color its background gray. and then remove the backticks`)
+    let re = Regex::new(r"`([^`]+)`").unwrap();
+    let result = re.replace_all(&result, |caps: &regex::Captures| {
+        format!("{{\\c&H808080&}}{}{{\\c&HFFFFFF&}}", &caps[1])
+    });
+    
+
 
     result.into_owned()
 }
