@@ -1,12 +1,26 @@
 import React, { useEffect, useState, useRef } from "react";
-import { invoke } from "@tauri-apps/api";
-import { listen } from "@tauri-apps/api/event";
+import useVideoLoader from "../hooks/useVideoLoader";
+import useFileContentLoader from "../hooks/useFileContentLoader";
+import useEventListeners from "../hooks/useEventListeners";
+import { formatDate } from "../hooks/useFormatDate";
 
 const Overlay = ({ file, onClick }) => {
   const [visible, setVisible] = useState(false);
   const imageRef = useRef(null);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("");
   const [videoReady, setVideoReady] = useState(false);
+
+  const createVideo = useVideoLoader(file);
+  const getTextContent = useFileContentLoader(file);
+
+  useEventListeners(setProgress, setStage);
+
+  useEffect(() => {
+    if (stage === "Done") {
+      setVideoReady(true);
+    }
+  }, [stage]);
 
   useEffect(() => {
     setVisible(true);
@@ -24,76 +38,7 @@ const Overlay = ({ file, onClick }) => {
     return null;
   }
 
-  // async fn create_video_with_ffmpeg(path: &str, window: Window) -> Result<(), String> {
 
-  const createVideo = async () => {
-    try {
-      const response = await invoke("create_video_with_ffmpeg", { path: file.filepath });
-      console.log(response);
-    }
-    catch (error) {
-      console.error(error);
-    }
-  };
-
-
-
-// //read_file_and_extract_frontmatter
-// #[tauri::command]
-// async fn read_file_and_extract_frontmatter(path: &str) -> Result<String, String> {
-//     file_utils::read_file_and_extract_frontmatter(path).await.map_err(|e| e.to_string())
-// }
-
-const getTextContent = async () => {
-  console.log(file.filepath);
-  if (!file || !file.filepath) {
-    console.error('File or file path is not defined');
-    return;
-  }
-
-  try {
-    const response = await invoke("read_file_and_extract_frontmatter", { path: file.filepath });
-    console.log(response);
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-  useEffect(() => {
-    let unlisten;
-
-    listen("progress", (event) => {
-      setProgress(event.payload);
-      if (event.payload === 100) {
-        setTimeout(() => {
-          setVideoReady(true);
-        }, 10000);
-      }
-    }).then((unlistenFunc) => {
-      unlisten = unlistenFunc;
-    });
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, []);
-
-  const formatDate = (filename) => {
-    // Extract the date part of the filename and convert it to a Date object
-    const dateString = filename.replace(".md", "");
-    const date = new Date(dateString);
-
-    // Format the date to a readable string
-    const options = {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    };
-    return date.toLocaleDateString(undefined, options);
-  };
 
   const maskBorderStyle = {
     position: "absolute",
@@ -178,7 +123,7 @@ const getTextContent = async () => {
             <div className="absolute bottom-0 left-0 p-4  text-white bg-gradient-to-t from-gray-800 to-transparent w-full">
               <h2 className="text-2xl font-bold mb-2">{file.entry_title}</h2>
               <p className="mb-2">
-                {formatDate(file.filename)} {file.hidden && "🔒"}
+                {formatDate(file.filename, "long")}{file.hidden && "🔒"}
               </p>
               <p className="mb-2">Rating: {file.rating}</p>
               <div
@@ -194,13 +139,15 @@ const getTextContent = async () => {
         >
           Generate Video
         </button>
-        <button
+        {/* <button
           onClick={getTextContent}
           className="bg-blue-500 text-white px-3 py-2 rounded-md m-10"
         >
           Get Text Content
-        </button>
-
+        </button> */}
+        <br />
+        <span className="mb-2">
+          {stage}</span>
         <div className="progress-bar">
           <div
             className="progress-bar-fill"

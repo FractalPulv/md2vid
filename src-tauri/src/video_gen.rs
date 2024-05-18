@@ -22,12 +22,13 @@ pub async fn create_video_with_ffmpeg(
     log_utils::print_pretty_log("Removing old audio file...", "blue");
     
 
-    // let old_audio_path = "./temp/audio.mp3";
-    // if Path::new(old_audio_path).exists() {
-    //     fs::remove_file(old_audio_path)?;
-    // }
+    let old_audio_path = "./temp_files/audio.mp3";
+    if Path::new(old_audio_path).exists() {
+        fs::remove_file(old_audio_path)?;
+    }
 
     log_utils::print_pretty_log("Downloading YouTube video as MP3...", "blue");
+    emit_stage_event(&window, "Downloading Audio")?;
 
     let download_result = yt_downloader::download_youtube_as_mp3(youtube_url);
     match download_result {
@@ -39,6 +40,7 @@ pub async fn create_video_with_ffmpeg(
     }
 
     log_utils::print_pretty_log("Generating videos for each sentence...", "blue");
+    emit_stage_event(&window, "Generating Videos")?;
 
     let sentences: Vec<&str> = text_content.split(". ").flat_map(|s| s.split(".\n")).collect();
     let mut file_list = String::new();
@@ -85,6 +87,8 @@ pub async fn create_video_with_ffmpeg(
     write_file_list(&file_list)?;
 
     log_utils::print_pretty_log("Concatenating....", "blue");
+    emit_stage_event(&window, "Concatenating videos");
+
 
     concatenate_videos().await?;
     
@@ -93,6 +97,7 @@ pub async fn create_video_with_ffmpeg(
         return Err("Concatenated video (output.mp4) not found".into());
     }
 
+    emit_stage_event(&window, "Merging audio");
     // when merge is done send progress
     merge_audio_with_video().await?;
 
@@ -100,6 +105,8 @@ pub async fn create_video_with_ffmpeg(
         delete_temporary_videos(&sentences)?;
         delete_file_list()?;
     }
+
+    emit_stage_event(&window, "Done");
 
     Ok(())
 }
@@ -183,6 +190,14 @@ fn emit_progress_event(
     progress: f64,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     window.emit("progress", Some(progress))?;
+    Ok(())
+}
+
+fn emit_stage_event(
+    window: &Window,
+    stage: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    window.emit("stage", Some(stage))?;
     Ok(())
 }
 

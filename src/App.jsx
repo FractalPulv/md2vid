@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api";
 import { listen } from '@tauri-apps/api/event';
 
 import useFileLoader from "./hooks/useFileLoader";
+import { formatDate } from "./hooks/useFormatDate";
 import Overlay from "./components/Overlay"; // Import the Overlay component
 
 function App() {
@@ -17,19 +18,14 @@ function App() {
     );
   }, []);
 
-  listen('progress', (event) => {
-    // console.log('Event received:', event);
-    console.log('Progress:', event.payload); // Logs the progress percentage
-  });
-
-  const createVideo = async () => {
-    try {
-      const response = await invoke("create_video");
-      console.log(response);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  // const createVideo = async () => {
+  //   try {
+  //     const response = await invoke("create_video");
+  //     console.log(response);
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
 
   const formatDate = (filename) => {
     // Extract the date part of the filename and convert it to a Date object
@@ -102,12 +98,12 @@ function App() {
           <option value="date">Date</option>
           <option value="title">Title</option>
         </select>
-        <button
+        {/* <button
           onClick={createVideo}
           className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md"
         >
           Generate Video
-        </button>
+        </button> */}
         
       </div>
       <div className="grid grid-cols-3 gap-4">
@@ -125,7 +121,7 @@ function App() {
             <div className="absolute bottom-0 left-0 bg-black bg-opacity-50 rounded-lg p-2">
               <p className="text-white text-left">{file.entry_title}</p>
               <p className="text-white text-sm text-left">
-                {formatDate(file.filename)} {file.hidden && "🔒"}
+                {formatDate(file.filename, "short")} {file.hidden && "🔒"}
               </p>
             </div>
             <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 p-2">
