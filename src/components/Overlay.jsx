@@ -3,6 +3,8 @@ import useVideoLoader from "../hooks/useVideoLoader";
 import useFileContentLoader from "../hooks/useFileContentLoader";
 import useEventListeners from "../hooks/useEventListeners";
 import { formatDate } from "../hooks/useFormatDate";
+import { invoke } from "@tauri-apps/api";
+
 
 const Overlay = ({ file, onClick }) => {
   const [visible, setVisible] = useState(false);
@@ -38,6 +40,49 @@ const Overlay = ({ file, onClick }) => {
     return null;
   }
 
+  const openInObsidian = () => {
+    console.log("Opening in Obsidian");
+  
+    // Assuming `file` is defined and has a `filename` property
+    const filename = file.filename;
+  
+    // Get the vault name from environment variables
+    const vault = import.meta.env.VITE_OBSIDIAN_VAULT_NAME;
+    console.log(vault);
+  
+    if (!vault) {
+      console.error('Vault name is not defined in environment variables');
+      return;
+    }
+
+    // fn open_in_obsidian_impl(vault: &str, filename: &str) -> std::io::Result<()> {
+    //   let encoded_vault = urlencoding::encode(vault);
+    //   let encoded_filename = urlencoding::encode(filename);
+    //invoke the tauri function
+
+
+      try {
+        const response = invoke("open_in_obsidian", { vault, filename });
+        console.log(response);
+      } catch (error) {
+        console.error(error);
+      }
+    
+
+
+    // Encode the vault name and filename
+    const encodedVault = encodeURIComponent(vault);
+    const encodedFilename = encodeURIComponent(filename);
+  
+    // Create the Obsidian URI
+    const obsidianURI = `obsidian://open?vault=${encodedVault}&file=${encodedFilename}`;
+    console.log(obsidianURI);
+    
+    // Open the URI
+    window.open(obsidianURI);
+  };
+  
+  
 
 
   const maskBorderStyle = {
@@ -139,12 +184,22 @@ const Overlay = ({ file, onClick }) => {
         >
           Generate Video
         </button>
-        {/* <button
-          onClick={getTextContent}
-          className="bg-blue-500 text-white px-3 py-2 rounded-md m-10"
+        {/* add a button in which the image is https://immage and there is no text */}
+
+        <button
+          onClick={openInObsidian}
+          className="bg-blue-500 text-white px-1 py-1 rounded-md m-10"
+          style={{ backgroundColor: "#151515" }}
         >
-          Get Text Content
-        </button> */}
+          <img
+            src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Favatars.githubusercontent.com%2Fu%2F65011256%3Fs%3D280%26v%3D4&f=1&nofb=1&ipt=0d7f74c1fc2c42b8a085015a7e2b7c17f8fcd505617c021430bcae10914c5dba&ipo=images"
+            alt="Obsidian"
+            className="h-8 w-8 inline-block"
+          />
+          
+        </button>
+
+        
         <br />
         <span className="mb-2">
           {stage}</span>
