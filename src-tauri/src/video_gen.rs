@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::Write;
 use reqwest::Client;
 use tokio::io::AsyncWriteExt;
-use std::env;
+
 
 
 use crate::yt_downloader;
@@ -178,8 +178,7 @@ fn delete_file_list() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 fn check_image_in_text(text: &str) -> Option<String> {
     // let local_image_directory = env::var("LOCAL_IMAGE_DIR_PATH").expect("LOCAL_IMAGE_DIR_PATH not found in .env file");
-    let local_image_directory = "/Users/lucapulvirenti/Library/Mobile Documents/iCloud~md~obsidian/Documents/Pulvirenti Archive/_attachments";
-
+    let local_image_directory = std::env::var("LOCAL_IMAGE_DIR_PATH").expect("LOCAL_IMAGE_DIR_PATH not found in .env file");
     // Local image syntax: ![[image.png]]
     let local_image_regex = Regex::new(r"!\[\[([^\]]+)\]\]").unwrap();
     // Hosted image syntax: ![alt](url.png)
@@ -208,39 +207,3 @@ async fn download_image(url: &str, path: &str) -> Result<(), Box<dyn Error + Sen
     Ok(())
 }
 
-
-// async fn process_sentence_with_image(
-//     window: &Window,
-//     sentence: &str,
-//     i: usize,
-//     file_list: &mut String,
-// ) -> Result<(), Box<dyn Error + Send + Sync>> {
-//     // This function is similar to the existing sentence processing logic in `create_video_with_ffmpeg`,
-//     // but it also handles the image.
-
-//     // Check if the sentence mentions an image.
-//     if let Some(image_path) = check_image_in_text(sentence) {
-//         // If an image is mentioned, download it.
-//         let local_image_path = download_image(&image_path).await?;
-
-//         // Process the sentence and generate the video with the image.
-//         let sentence_with_color = text_processing::process_sentence(sentence);
-//         let ass_content = text_processing::generate_ass_content(&sentence_with_color)?;
-//         let ass_file_name = format!("sentence{}.ass", i);
-//         write_ass_file(&ass_file_name, &ass_content)?;
-//         let command_output = ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &local_image_path, i).await?;
-
-//         // Check the status of the command and update the progress.
-//         if command_output.status.success() {
-//             let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
-//             emit_progress_event(&window, progress)?;
-//             file_list.push_str(&format!("file 'output{}.mp4'\n", i));
-//         } else {
-//             eprintln!(
-//                 "Error: {}",
-//                 String::from_utf8_lossy(&command_output.stderr)
-//             );
-//         }
-//         delete_ass_file(&ass_file_name)?;
-//     }
-// }
