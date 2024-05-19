@@ -3,6 +3,12 @@ use tokio::process::Command;
 use tauri::Window;
 use regex::Regex;
 use std::path::Path;
+use std::fs::File;
+use std::io::Write;
+use reqwest::Client;
+use tokio::io::AsyncWriteExt;
+use std::env;
+
 
 use crate::yt_downloader;
 use crate::log_utils;
@@ -16,9 +22,7 @@ pub async fn create_video_with_ffmpeg(
     youtube_url: &str,
     delete_temp_videos: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     log_utils::print_pretty_log("Removing old audio file...", "blue");
-    
 
     let old_audio_path = "./temp_files/audio.mp3";
     if Path::new(old_audio_path).exists() {
@@ -47,40 +51,37 @@ pub async fn create_video_with_ffmpeg(
         .flat_map(|s| s.split("! "))
         .collect();
 
-// replace line breaks with spaces 
-let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).collect();
+    let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).collect();
 
     let mut file_list = String::new();
 
     for (i, sentence) in sentences.iter().enumerate() {
-
-        println!("xxxxxxxxxxxxxxxxxxxxxxxx");
-        println!("Sentence pre-trim {}", sentence);
-        
-        // there's a bug with paragraphs having a lot of white space before the sentence
-        // for now trim this starting white space
         let sentence = sentence.trim();
+        let mut image_file_path = None;
 
-        println!("Sentence post-trim {}", sentence);
-        println!("xxxxxxxxxxxxxxxxxxxxxxxx");
+        if let Some(image_path_or_url) = check_image_in_text(sentence) {
+            if image_path_or_url.starts_with("http") {
+                // Hosted image
+                let image_path = format!("./temp_files/image{}.png", i);
+                download_image(&image_path_or_url, &image_path).await?;
+                image_file_path = Some(image_path);
+            } else {
+                // Local image
+                image_file_path = Some(image_path_or_url);
+            }
+        }
 
-        // add a function which returns a list of images from the sentence (both hosted and local (just the file name))
-        // then add a function which downloads the images and saves them in a temp folder
-        // then add a function which generates a video from the images
-        
-
-       // Process the sentence to handle text with and without aliases within double square brackets
-       let sentence_with_color = text_processing::process_sentence(sentence);
-
+        let sentence_with_color = text_processing::process_sentence(sentence);
         let ass_content = text_processing::generate_ass_content(&sentence_with_color)?;
         let ass_file_name = format!("sentence{}.ass", i);
         write_ass_file(&ass_file_name, &ass_content)?;
 
-        // Await the output here
-        // let command_output = ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?;
-        let command_output = ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, "/Users/lucapulvirenti/Documents/GitHub/md2vid/src-tauri/lovely.jpg", i).await?;
+        let command_output = if let Some(image_path) = image_file_path {
+            ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &image_path, i).await?
+        } else {
+            ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?
+        };
 
-        // Check the status of the command
         if command_output.status.success() {
             let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
             emit_progress_event(&window, progress)?;
@@ -102,16 +103,13 @@ let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).coll
     log_utils::print_pretty_log("Concatenating....", "blue");
     emit_stage_event(&window, "Concatenating videos");
 
-
     ffmpeg_operations::concatenate_videos().await?;
-    
-    // Check if concatenated video exists
+
     if !fs::metadata("output.mp4").is_ok() {
         return Err("Concatenated video (output.mp4) not found".into());
     }
 
     emit_stage_event(&window, "Merging audio");
-    // when merge is done send progress
     ffmpeg_operations::merge_audio_with_video().await?;
 
     if delete_temp_videos {
@@ -123,6 +121,7 @@ let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).coll
 
     Ok(())
 }
+
 
 
 // 
@@ -176,3 +175,72 @@ fn delete_file_list() -> Result<(), Box<dyn Error + Send + Sync>> {
     fs::remove_file("file_list.txt")?;
     Ok(())
 }
+
+fn check_image_in_text(text: &str) -> Option<String> {
+    // let local_image_directory = env::var("LOCAL_IMAGE_DIR_PATH").expect("LOCAL_IMAGE_DIR_PATH not found in .env file");
+    let local_image_directory = "/Users/lucapulvirenti/Library/Mobile Documents/iCloud~md~obsidian/Documents/Pulvirenti Archive/_attachments";
+
+    // Local image syntax: ![[image.png]]
+    let local_image_regex = Regex::new(r"!\[\[([^\]]+)\]\]").unwrap();
+    // Hosted image syntax: ![alt](url.png)
+    let hosted_image_regex = Regex::new(r"!\[([^\]]*)\]\(([^)]+)\)").unwrap();
+
+    if let Some(captures) = local_image_regex.captures(text) {
+        // Extract the image path from the capture group
+        let image_path = captures.get(1).unwrap().as_str();
+        let full_image_path = Path::new(&local_image_directory).join(image_path);
+        Some(full_image_path.to_str().unwrap().to_string())
+    } else if let Some(captures) = hosted_image_regex.captures(text) {
+        // Extract the image URL from the capture group
+        let image_url = captures.get(2).unwrap().as_str().to_string();
+        Some(image_url)
+    } else {
+        None
+    }
+}
+
+
+async fn download_image(url: &str, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let response = Client::new().get(url).send().await?;
+    let bytes = response.bytes().await?;
+    let mut file = File::create(path)?;
+    file.write_all(&bytes)?;
+    Ok(())
+}
+
+
+// async fn process_sentence_with_image(
+//     window: &Window,
+//     sentence: &str,
+//     i: usize,
+//     file_list: &mut String,
+// ) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     // This function is similar to the existing sentence processing logic in `create_video_with_ffmpeg`,
+//     // but it also handles the image.
+
+//     // Check if the sentence mentions an image.
+//     if let Some(image_path) = check_image_in_text(sentence) {
+//         // If an image is mentioned, download it.
+//         let local_image_path = download_image(&image_path).await?;
+
+//         // Process the sentence and generate the video with the image.
+//         let sentence_with_color = text_processing::process_sentence(sentence);
+//         let ass_content = text_processing::generate_ass_content(&sentence_with_color)?;
+//         let ass_file_name = format!("sentence{}.ass", i);
+//         write_ass_file(&ass_file_name, &ass_content)?;
+//         let command_output = ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &local_image_path, i).await?;
+
+//         // Check the status of the command and update the progress.
+//         if command_output.status.success() {
+//             let progress = (i + 1) as f64 / sentences.len() as f64 * 100.0;
+//             emit_progress_event(&window, progress)?;
+//             file_list.push_str(&format!("file 'output{}.mp4'\n", i));
+//         } else {
+//             eprintln!(
+//                 "Error: {}",
+//                 String::from_utf8_lossy(&command_output.stderr)
+//             );
+//         }
+//         delete_ass_file(&ass_file_name)?;
+//     }
+// }
