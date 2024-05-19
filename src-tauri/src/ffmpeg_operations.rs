@@ -94,4 +94,39 @@ pub async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>
     }
 }
 
-// make a function which 
+pub async fn generate_video_with_text_and_image(
+    ass_file_name: &str,
+    image_file_path: &str,
+    index: usize,
+) -> Result<std::process::Output, Box<dyn Error + Send + Sync>> {
+    let command_output = Command::new("ffmpeg")
+        .args(&[
+            "-y",
+            "-loop",
+            "1",
+            "-i",
+            image_file_path,
+            "-f",
+            "lavfi",
+            "-i",
+            "color=color=black:size=1280x720",
+            "-filter_complex",
+            &format!(
+                "[1][0]overlay=10:10,ass={}:fontsdir=./",
+                ass_file_name
+            ),
+            "-t",
+            "5",
+            "-b:v",
+            "5M",
+            "-preset",
+            "slow",
+            "-y",
+            &format!("output{}.mp4", index),
+        ])
+        .output()
+        .await?;
+
+    Ok(command_output)
+}
+

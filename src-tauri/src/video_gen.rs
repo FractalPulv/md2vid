@@ -77,7 +77,8 @@ let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).coll
         write_ass_file(&ass_file_name, &ass_content)?;
 
         // Await the output here
-        let command_output = ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?;
+        // let command_output = ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?;
+        let command_output = ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, "/Users/lucapulvirenti/Documents/GitHub/md2vid/src-tauri/lovely.jpg", i).await?;
 
         // Check the status of the command
         if command_output.status.success() {
