@@ -6,6 +6,8 @@ use std::path::Path;
 
 use crate::yt_downloader;
 use crate::log_utils;
+use crate::text_processing;
+use crate::ffmpeg_operations;
 
 pub async fn create_video_with_ffmpeg(
     window: Window,
@@ -14,10 +16,6 @@ pub async fn create_video_with_ffmpeg(
     youtube_url: &str,
     delete_temp_videos: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // println!("===================================");
-    // println!("Frontmatter: {}", frontmatter);
-    // println!("Text content: {}", text_content);
-    // println!("===================================");
 
     log_utils::print_pretty_log("Removing old audio file...", "blue");
     
@@ -42,7 +40,16 @@ pub async fn create_video_with_ffmpeg(
     log_utils::print_pretty_log("Generating videos for each sentence...", "blue");
     emit_stage_event(&window, "Generating Videos")?;
 
-    let sentences: Vec<&str> = text_content.split(". ").flat_map(|s| s.split(".\n")).collect();
+    let sentences: Vec<&str> = text_content.split(". ")
+        .flat_map(|s| s.split(".\n"))
+        .flat_map(|s| s.split("? "))
+        .flat_map(|s| s.split("!\n"))
+        .flat_map(|s| s.split("! "))
+        .collect();
+
+// replace line breaks with spaces 
+let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).collect();
+
     let mut file_list = String::new();
 
     for (i, sentence) in sentences.iter().enumerate() {
@@ -57,15 +64,20 @@ pub async fn create_video_with_ffmpeg(
         println!("Sentence post-trim {}", sentence);
         println!("xxxxxxxxxxxxxxxxxxxxxxxx");
 
-       // Process the sentence to handle text with and without aliases within double square brackets
-       let sentence_with_color = process_sentence(sentence);
+        // add a function which returns a list of images from the sentence (both hosted and local (just the file name))
+        // then add a function which downloads the images and saves them in a temp folder
+        // then add a function which generates a video from the images
+        
 
-        let ass_content = generate_ass_content(&sentence_with_color)?;
+       // Process the sentence to handle text with and without aliases within double square brackets
+       let sentence_with_color = text_processing::process_sentence(sentence);
+
+        let ass_content = text_processing::generate_ass_content(&sentence_with_color)?;
         let ass_file_name = format!("sentence{}.ass", i);
         write_ass_file(&ass_file_name, &ass_content)?;
 
         // Await the output here
-        let command_output = execute_ffmpeg_command(&ass_file_name, i).await?;
+        let command_output = ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?;
 
         // Check the status of the command
         if command_output.status.success() {
@@ -90,7 +102,7 @@ pub async fn create_video_with_ffmpeg(
     emit_stage_event(&window, "Concatenating videos");
 
 
-    concatenate_videos().await?;
+    ffmpeg_operations::concatenate_videos().await?;
     
     // Check if concatenated video exists
     if !fs::metadata("output.mp4").is_ok() {
@@ -99,10 +111,10 @@ pub async fn create_video_with_ffmpeg(
 
     emit_stage_event(&window, "Merging audio");
     // when merge is done send progress
-    merge_audio_with_video().await?;
+    ffmpeg_operations::merge_audio_with_video().await?;
 
     if delete_temp_videos {
-        delete_temporary_videos(&sentences)?;
+        delete_temporary_videos(&sentences.iter().map(|s| s.as_str()).collect::<Vec<&str>>())?;
         delete_file_list()?;
     }
 
@@ -111,100 +123,16 @@ pub async fn create_video_with_ffmpeg(
     Ok(())
 }
 
-// Function to process sentence with and without aliases within double square brackets
-fn process_sentence(sentence: &str) -> String {
-    let re = Regex::new(r"\[\[(.*?)\]\]").unwrap();
 
-    // If there are double square brackets, remove brackets and make the text purple
-    let result = re.replace_all(sentence, |caps: &regex::Captures| {
-        let text = &caps[1];
-        if let Some((_, alias)) = text.split_once(" |") {
-            format!("{{\\c&H800080&}}{}{{\\c&HFFFFFF&}}", alias.trim())
-        } else {
-            format!("{{\\c&H800080&}}{}{{\\c&HFFFFFF&}}", text)
-        }
-    });
+// 
 
-    // If the text is wrapped with underscores, make the text italic and green. and then remove the underscores
-    let re = Regex::new(r"_([^_]+)_").unwrap();
-    let result = re.replace_all(&result, |caps: &regex::Captures| {
-        format!("{{\\i1\\c&H00FF00&}}{}{{\\i0\\c&HFFFFFF&}}", &caps[1])
-    });
-
-    // If the text is wrapped with asterisks, make the text bold and red. and then remove the asterisks
-    let re = Regex::new(r"\*([^*]+)\*").unwrap();
-    let result = re.replace_all(&result, |caps: &regex::Captures| {
-        format!("{{\\b1\\c&HFF0000&}}{}{{\\b0\\c&HFFFFFF&}}", &caps[1])
-    });
-
-    // If the text is wrapped with single backticks (`), make the text monospace and color its background gray. and then remove the backticks`)
-    let re = Regex::new(r"`([^`]+)`").unwrap();
-    let result = re.replace_all(&result, |caps: &regex::Captures| {
-        format!("{{\\c&H808080&}}{}{{\\c&HFFFFFF&}}", &caps[1])
-    });
-    
-
-
-    result.into_owned()
-}
-
-
-fn generate_ass_content(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let ass_content = format!(
-        r#"[Script Info]
-        Title: Default Aegisub file
-        ScriptType: v4.00+
-        WrapStyle: 0
-        PlayResX: 1280
-        PlayResY: 720
-        ScaledBorderAndShadow: yes
-        YCbCr Matrix: None
-        
-        [V4+ Styles]
-        Format: Name, Fontname, Fontsize, PrimaryColour, Alignment
-        Style: Default, Vera, 42, &HFFFFFF, 8
-        
-        [Events]
-        Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-        Dialogue: 0,0:00:00.00,0:00:05.00,Default,,320,320,355,,{}"#,
-        sentence
-    );
-
-    Ok(ass_content)
-}
 
 fn write_ass_file(file_name: &str, content: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     fs::write(file_name, content)?;
     Ok(())
 }
 
-async fn execute_ffmpeg_command(
-    ass_file_name: &str,
-    index: usize,
-) -> Result<std::process::Output, Box<dyn Error + Send + Sync>> {
-    let command_output = Command::new("ffmpeg")
-        .args(&[
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=color=black:size=1280x720",
-            "-vf",
-            &format!("ass={}:fontsdir=./", ass_file_name),
-            "-t",
-            "5",
-            "-b:v",
-            "5M",
-            "-preset",
-            "slow",
-            "-y",
-            &format!("output{}.mp4", index),
-        ])
-        .output()
-        .await?;
 
-    Ok(command_output)
-}
 
 fn emit_progress_event(
     window: &Window,
@@ -232,70 +160,7 @@ fn write_file_list(file_list: &str) -> Result<(), Box<dyn Error + Send + Sync>> 
     Ok(())
 }
 
-async fn concatenate_videos() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let command_output = Command::new("ffmpeg")
-        .args(&[
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            "file_list.txt",
-            "-c",
-            "copy",
-            "-y",
-            "output.mp4",
-        ])
-        .output()
-        .await?;
 
-    if command_output.status.success() {
-        println!("Videos concatenated successfully!");
-        Ok(())
-    } else {
-        eprintln!(
-            "Error concatenating videos: {}",
-            String::from_utf8_lossy(&command_output.stderr)
-        );
-        Err("Failed to concatenate videos".into())
-    }
-}
-
-async fn merge_audio_with_video() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let command_output = Command::new("ffmpeg")
-        .args(&[
-            "-y", // Allow overwrite
-            "-i",
-            "output.mp4",
-            "-i",
-            "./temp_files/audio.mp3",
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-strict",
-            "experimental",
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-shortest",
-            "final_output.mp4",
-        ])
-        .output()
-        .await?;
-
-    if command_output.status.success() {
-        println!("Audio merged with video successfully!");
-        Ok(())
-    } else {
-        eprintln!(
-            "Error merging audio with video: {}",
-            String::from_utf8_lossy(&command_output.stderr)
-        );
-        Err("Failed to merge audio with video".into())
-    }
-}
 
 fn delete_temporary_videos(
     sentences: &[&str],

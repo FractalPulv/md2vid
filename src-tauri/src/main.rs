@@ -8,6 +8,8 @@ mod file_utils;
 mod log_utils;
 mod video_gen;
 mod yt_downloader;
+mod text_processing;
+mod ffmpeg_operations;
 
 #[tokio::main]
 async fn main() {
