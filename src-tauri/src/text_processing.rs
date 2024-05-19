@@ -63,7 +63,31 @@ pub fn process_sentence(sentence: &str) -> String {
 
 
 
-pub fn generate_ass_content(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+pub fn generate_ass_content_bottom(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let ass_content = format!(
+        r#"[Script Info]
+        Title: Default Aegisub file
+        ScriptType: v4.00+
+        WrapStyle: 0
+        PlayResX: 1280
+        PlayResY: 720
+        ScaledBorderAndShadow: yes
+        YCbCr Matrix: None
+
+        [V4+ Styles]
+        Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+        Style: Default, Vera, 28, &HFFFFFF, &HFFFFFF, &H000000, &H000000, -1, 0, 0, 0, 100, 100, 0, 0, 1, 1, 1, 2, 10, 10, 30, 1
+
+        [Events]
+        Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+        Dialogue: 0,0:00:00.00,0:00:05.00,Default,,10,10,30,,{}"#,
+        sentence
+    );
+
+    Ok(ass_content)
+}
+
+pub fn generate_ass_content_centered(sentence: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
     let ass_content = format!(
         r#"[Script Info]
         Title: Default Aegisub file

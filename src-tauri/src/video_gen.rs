@@ -72,7 +72,7 @@ pub async fn create_video_with_ffmpeg(
         }
 
         let sentence_with_color = text_processing::process_sentence(sentence);
-        let ass_content = text_processing::generate_ass_content(&sentence_with_color)?;
+                let ass_content = text_processing::generate_ass_content_bottom(&sentence_with_color)?;
         let ass_file_name = format!("sentence{}.ass", i);
         write_ass_file(&ass_file_name, &ass_content)?;
 

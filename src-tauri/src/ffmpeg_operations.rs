@@ -112,7 +112,7 @@ pub async fn generate_video_with_text_and_image(
             "color=color=black:size=1280x720",
             "-filter_complex",
             &format!(
-                "[0:v]scale=640:-1 [scaled]; [1:v][scaled]overlay=(W-w)/2:(H-h)/2,ass={}:fontsdir=./",
+                "[0:v]scale=640:-1 [scaled]; [1:v][scaled]overlay=(W-w)/2:(H-h)/4,ass={}:fontsdir=./",
                 ass_file_name
             ),
             "-t",
