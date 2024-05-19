@@ -32,3 +32,9 @@ dist-ssr
 *.mp3
 *.wav
 *.flac
+
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
