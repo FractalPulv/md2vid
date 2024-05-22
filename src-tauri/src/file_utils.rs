@@ -17,20 +17,26 @@ pub fn get_all_files_frontmatter() -> Result<String, String> {
 
         let path = path.map_err(|e| e.to_string())?.path();
         if path.is_file() {
-            let file = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
-            match extract_frontmatter_and_insert_json(&file, &filename, &path) {
-                Ok(frontmatter) => {
-                    // println!("Frontmatter: {:?}", frontmatter);
-                    frontmatters.push(frontmatter);
-                    count += 1; // Increment the counter
+            match fs::read_to_string(&path) {
+                Ok(file) => {
+                    let filename = path.file_name().unwrap().to_string_lossy().to_string();
+                    match extract_frontmatter_and_insert_json(&file, &filename, &path) {
+                        Ok(frontmatter) => {
+                            // println!("Frontmatter: {:?}", frontmatter);
+                            frontmatters.push(frontmatter);
+                            count += 1; // Increment the counter
+                        },
+                        Err(e) => {
+                            return Err(format!(
+                                "Error parsing frontmatter in file {}: {}",
+                                path.display(),
+                                e
+                            ))
+                        }
+                    }
                 },
-                Err(e) => {
-                    return Err(format!(
-                        "Error parsing frontmatter in file {}: {}",
-                        path.display(),
-                        e
-                    ))
+                Err(_) => {
+                    eprintln!("File at {} did not contain valid UTF-8", path.display());
                 }
             }
         }

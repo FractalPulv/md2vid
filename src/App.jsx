@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api";
 import { listen } from '@tauri-apps/api/event';
 
 import useFileLoader from "./hooks/useFileLoader";
-import { formatDate } from "./hooks/useFormatDate";
 import Overlay from "./components/Overlay"; // Import the Overlay component
 
 function App() {
@@ -17,15 +16,6 @@ function App() {
       console.log(response)
     );
   }, []);
-
-  // const createVideo = async () => {
-  //   try {
-  //     const response = await invoke("create_video");
-  //     console.log(response);
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // };
 
   const formatDate = (filename) => {
     // Extract the date part of the filename and convert it to a Date object
@@ -68,6 +58,32 @@ function App() {
       sortedFiles.sort((a, b) => {
         return a.entry_title.localeCompare(b.entry_title);
       });
+    } else if (option === "week") {
+      // Sort by week
+      const filesByWeek = {};
+
+      sortedFiles.forEach(file => {
+        const date = new Date(file.filename.replace(".md", ""));
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+
+        const weekStartStr = weekStart.toISOString().split("T")[0];
+
+        if (!filesByWeek[weekStartStr]) {
+          filesByWeek[weekStartStr] = new Array(7).fill(null);
+        }
+
+        filesByWeek[weekStartStr][date.getDay()] = file;
+      });
+
+      const sortedWeeks = Object.keys(filesByWeek).sort((a, b) => new Date(b) - new Date(a));
+      const sortedFilesByWeek = {};
+
+      sortedWeeks.forEach(week => {
+        sortedFilesByWeek[week] = filesByWeek[week];
+      });
+
+      return sortedFilesByWeek;
     }
 
     return sortedFiles;
@@ -97,41 +113,79 @@ function App() {
         >
           <option value="date">Date</option>
           <option value="title">Title</option>
+          <option value="week">Week</option>
         </select>
-        {/* <button
-          onClick={createVideo}
-          className="ml-2 bg-blue-500 text-white px-3 py-2 rounded-md"
-        >
-          Generate Video
-        </button> */}
-        
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        {sortedFileFrontmatter.map((file) => (
-          <div
-            key={file.filename}
-            className="flex justify-center items-center relative aspect-[4/3] rounded-lg shadow-lg overflow-hidden transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer"
-            onClick={() => handleFileClick(file)} // Add onClick handler
-          >
-            <img
-              src={file.entry_thumbnail || "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"}
-              alt={file.filename}
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute bottom-0 left-0 bg-black bg-opacity-50 rounded-lg p-2">
-              <p className="text-white text-left">{file.entry_title}</p>
-              <p className="text-white text-sm text-left">
-                {formatDate(file.filename, "short")} {file.hidden && "🔒"}
-              </p>
+      {sortOption === "week" ? (
+        <div className="grid grid-cols-7 gap-4">
+          {Object.keys(sortedFileFrontmatter).map(weekStart => (
+            <div key={weekStart} className="col-span-7">
+              <div className="grid grid-cols-7 gap-4">
+                {sortedFileFrontmatter[weekStart].map((file, index) => (
+                  file ? (
+                    <div
+                      key={file.filename}
+                      className="flex justify-center items-center relative aspect-[4/3] rounded-lg shadow-lg overflow-hidden transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer"
+                      onClick={() => handleFileClick(file)}
+                    >
+                      <img
+                        src={file.entry_thumbnail || "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"}
+                        alt={file.filename}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute bottom-0 left-0 bg-black bg-opacity-50 rounded-lg p-2">
+                        <p className="text-white text-left">{file.entry_title}</p>
+                        <p className="text-white text-sm text-left">
+                          {formatDate(file.filename, "short")} {file.hidden && "🔒"}
+                        </p>
+                      </div>
+                      <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 p-2">
+                        <p className="text-white text-sm text-right">
+                          {file.rating}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={index} className="aspect-[4/3] rounded-lg shadow-lg bg-gray-700">
+                      {/* add both vertically and horizontally centered text saying 'no file' */}
+                      <div className="flex justify-center items-center h-full text-gray-400 text-1xl">
+                        No File
+                        </div>
+                    </div>
+                  )
+                ))}
+              </div>
             </div>
-            <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 p-2">
-              <p className="text-white text-sm text-right">
-                {file.rating}
-              </p>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          {sortedFileFrontmatter.map((file) => (
+            <div
+              key={file.filename}
+              className="flex justify-center items-center relative aspect-[4/3] rounded-lg shadow-lg overflow-hidden transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer"
+              onClick={() => handleFileClick(file)}
+            >
+              <img
+                src={file.entry_thumbnail || "https://pcforms.com/diy-printing-blog/wp-content/uploads/2015/11/fld-step-1a-cut-plain-piece-of-paper-to-size.jpgt1438359447889ampwidth600ampheight338"}
+                alt={file.filename}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 bg-black bg-opacity-50 rounded-lg p-2">
+                <p className="text-white text-left">{file.entry_title}</p>
+                <p className="text-white text-sm text-left">
+                  {formatDate(file.filename, "short")} {file.hidden && "🔒"}
+                </p>
+              </div>
+              <div className="absolute bottom-0 right-0 bg-black bg-opacity-50 p-2">
+                <p className="text-white text-sm text-right">
+                  {file.rating}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       {selectedFile && (
         <Overlay file={selectedFile} onClick={handleOverlayClick} /> // Render the Overlay component when a file is selected
       )}
