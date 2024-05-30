@@ -125,24 +125,42 @@ pub fn extract_text_content(path: &str) -> Result<String, String> {
 }
 
 
-pub fn extract_youtube_url_from_text_content(text_content: &str) -> Result<String, String> {
-    let re = Regex::new(r#"<iframe.*?src="(.*?)".*?>"#).unwrap();
-    let youtube_match = re.captures(text_content);
 
-    if let Some(captures) = youtube_match {
+
+pub fn extract_youtube_url_from_text_content(text_content: &str) -> Result<String, String> {
+    // Regex to match YouTube URLs in iframe tags
+    let iframe_re = Regex::new(r#"<iframe.*?src="(.*?)".*?>"#).unwrap();
+    // Regex to match YouTube URLs in plain text
+    let url_re = Regex::new(r#"(https?://(?:www\.)?youtube\.com/watch\?v=[\w-]+|https?://youtu\.be/[\w-]+)"#).unwrap();
+
+    // Attempt to find a YouTube URL in an iframe tag
+    if let Some(captures) = iframe_re.captures(text_content) {
         if let Some(youtube_url) = captures.get(1) {
             let youtube_url = youtube_url.as_str();
-            println!("Youtube URL: (before) {}", youtube_url);
+            println!("YouTube URL (iframe): {}", youtube_url);
 
-            if let Some(youtube_url) = youtube_url.split("?").next() {
-                if let Some(video_id) = youtube_url.split("/").last() {
+            // Extract video ID from iframe URL and construct the full YouTube URL
+            if let Some(youtube_url) = youtube_url.split('?').next() {
+                if let Some(video_id) = youtube_url.split('/').last() {
                     let full_youtube_url = format!("https://www.youtube.com/watch?v={}", video_id);
-                    println!("Full Youtube URL: {}", full_youtube_url);
+                    println!("Full YouTube URL: {}", full_youtube_url);
                     return Ok(full_youtube_url);
                 }
             }
         }
     }
 
+    // Attempt to find a YouTube URL in plain text
+    if let Some(captures) = url_re.captures(text_content) {
+        if let Some(youtube_url) = captures.get(0) {
+            let youtube_url = youtube_url.as_str();
+            println!("YouTube URL (plain text): {}", youtube_url);
+
+            // Return the matched YouTube URL as it is
+            return Ok(youtube_url.to_string());
+        }
+    }
+
+    // If no YouTube URL is found, return the default URL
     Ok("https://www.youtube.com/watch?v=H0j_xIm4fW0".to_string())
 }

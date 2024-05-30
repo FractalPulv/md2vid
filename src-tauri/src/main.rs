@@ -61,12 +61,25 @@ fn get_all_files_frontmatter() -> Result<String, String> {
 // }
 
 // take path and window
+
 #[tauri::command]
 async fn create_video_with_ffmpeg(path: &str, window: Window) -> Result<(), String> {
+    // Extract frontmatter and text content from the file
     let frontmatter = file_utils::extract_frontmatter(&path).map_err(|e| e.to_string())?;
     let text_content = file_utils::extract_text_content(&path).map_err(|e| e.to_string())?;
-    let youtube_url = file_utils::extract_youtube_url_from_text_content(&text_content).map_err(|e| e.to_string())?;
-    video_gen::create_video_with_ffmpeg(window, &frontmatter, &text_content, &youtube_url, true).await.map_err(|e| e.to_string())
+    
+    // Attempt to extract YouTube URL from the frontmatter
+    let youtube_url_from_frontmatter = file_utils::extract_youtube_url_from_text_content(&frontmatter).ok();
+    
+    // If no URL is found in the frontmatter, attempt to extract it from the text content
+    let youtube_url = youtube_url_from_frontmatter
+        .or_else(|| file_utils::extract_youtube_url_from_text_content(&text_content).ok())
+        .unwrap_or_else(|| "https://www.youtube.com/watch?v=H0j_xIm4fW0".to_string());
+    
+    // Create video with the extracted YouTube URL
+    video_gen::create_video_with_ffmpeg(window, &frontmatter, &text_content, &youtube_url, true)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 //read_file_and_extract_frontmatter

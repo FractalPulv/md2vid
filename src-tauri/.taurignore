@@ -10,3 +10,5 @@ audio.webm.part
 *.mp3
 *.webm
 *.webm.part
+
+*.ass
