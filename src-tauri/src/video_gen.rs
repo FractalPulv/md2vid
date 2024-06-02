@@ -7,6 +7,8 @@ use std::fs::File;
 use std::io::Write;
 use reqwest::Client;
 use tokio::io::AsyncWriteExt;
+use crate::image_resolution::ImageResolution;
+
 
 
 
@@ -77,7 +79,7 @@ pub async fn create_video_with_ffmpeg(
         write_ass_file(&ass_file_name, &ass_content)?;
 
         let command_output = if let Some(image_path) = image_file_path {
-            ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &image_path, i).await?
+            ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &image_path, i, ImageResolution::Low).await?
         } else {
             ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?
         };

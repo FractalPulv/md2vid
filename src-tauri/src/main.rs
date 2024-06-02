@@ -3,6 +3,7 @@ use std::error::Error; // Import the Error trait
 use tauri::Window;
 use std::process::Command;
 
+
 // Import the file_utils and video_gen modules
 mod file_utils;
 mod log_utils;
@@ -10,6 +11,7 @@ mod video_gen;
 mod yt_downloader;
 mod text_processing;
 mod ffmpeg_operations;
+mod image_resolution;
 
 #[tokio::main]
 async fn main() {

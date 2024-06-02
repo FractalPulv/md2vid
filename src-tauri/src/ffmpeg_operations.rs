@@ -1,5 +1,6 @@
 use std::error::Error;
 use tokio::process::Command;
+use crate::image_resolution::ImageResolution;
 
 pub async fn execute_ffmpeg_command(
     ass_file_name: &str,
@@ -98,7 +99,15 @@ pub async fn generate_video_with_text_and_image(
     ass_file_name: &str,
     image_file_path: &str,
     index: usize,
+    resolution: ImageResolution,
 ) -> Result<std::process::Output, Box<dyn Error + Send + Sync>> {
+    let scale = match resolution {
+        ImageResolution::Low => "320:-1",
+        ImageResolution::Medium => "640:-1",
+        ImageResolution::High => "1280:-1",
+        ImageResolution::Full => "1920:-1",
+    };
+
     let command_output = Command::new("ffmpeg")
         .args(&[
             "-y",
@@ -112,7 +121,8 @@ pub async fn generate_video_with_text_and_image(
             "color=color=black:size=1280x720",
             "-filter_complex",
             &format!(
-                "[0:v]scale=640:-1 [scaled]; [1:v][scaled]overlay=(W-w)/2:(H-h)/4,ass={}:fontsdir=./",
+                "[0:v]scale={} [scaled]; [1:v][scaled]overlay=(W-w)/2:(H-h)/4,ass={}:fontsdir=./",
+                scale,
                 ass_file_name
             ),
             "-t",
