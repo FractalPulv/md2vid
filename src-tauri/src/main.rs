@@ -79,7 +79,7 @@ async fn create_video_with_ffmpeg(path: &str, window: Window) -> Result<(), Stri
         .unwrap_or_else(|| "https://www.youtube.com/watch?v=H0j_xIm4fW0".to_string());
     
     // Create video with the extracted YouTube URL
-    video_gen::create_video_with_ffmpeg(window, &frontmatter, &text_content, &youtube_url, true)
+    video_gen::create_video_with_ffmpeg(window, &frontmatter, &text_content, &youtube_url, true, true)
         .await
         .map_err(|e| e.to_string())
 }

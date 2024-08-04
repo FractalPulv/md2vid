@@ -23,6 +23,7 @@ pub async fn create_video_with_ffmpeg(
     text_content: &str,
     youtube_url: &str,
     delete_temp_videos: bool,
+    delete_downloaded_images: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     log_utils::print_pretty_log("Removing old audio file...", "blue");
 
@@ -56,6 +57,7 @@ pub async fn create_video_with_ffmpeg(
     let sentences: Vec<String> = sentences.iter().map(|s| s.replace("\n", " ")).collect();
 
     let mut file_list = String::new();
+    let mut downloaded_images = Vec::new();
 
     for (i, sentence) in sentences.iter().enumerate() {
         let sentence = sentence.trim();
@@ -65,6 +67,7 @@ pub async fn create_video_with_ffmpeg(
             if image_path_or_url.starts_with("http") {
                 // Hosted image
                 let image_path = format!("./temp_files/image{}.png", i);
+                downloaded_images.push(image_file_path.clone());
                 download_image(&image_path_or_url, &image_path).await?;
                 image_file_path = Some(image_path);
             } else {
@@ -79,7 +82,7 @@ pub async fn create_video_with_ffmpeg(
         write_ass_file(&ass_file_name, &ass_content)?;
 
         let command_output = if let Some(image_path) = image_file_path {
-            ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &image_path, i, ImageResolution::Low).await?
+            ffmpeg_operations::generate_video_with_text_and_image(&ass_file_name, &image_path, i, ImageResolution::Full).await?
         } else {
             ffmpeg_operations::execute_ffmpeg_command(&ass_file_name, i).await?
         };
@@ -117,6 +120,16 @@ pub async fn create_video_with_ffmpeg(
     if delete_temp_videos {
         delete_temporary_videos(&sentences.iter().map(|s| s.as_str()).collect::<Vec<&str>>())?;
         delete_file_list()?;
+    }
+
+    if delete_downloaded_images {
+        for image_file_name in downloaded_images {
+            if let Some(file_name) = image_file_name {
+                fs::remove_file(file_name)?;
+            }
+            // log_utils::print_pretty_log(
+            // detele not working
+        }
     }
 
     emit_stage_event(&window, "Done");
