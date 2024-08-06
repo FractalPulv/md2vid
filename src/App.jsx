@@ -5,11 +5,13 @@ import { listen } from '@tauri-apps/api/event';
 
 import useFileLoader from "./hooks/useFileLoader";
 import Overlay from "./components/Overlay"; // Import the Overlay component
+import Settings from "./components/Settings"; // Import the Settings component
 
 function App() {
   const { fileFrontmatter, loading } = useFileLoader();
   const [sortOption, setSortOption] = useState("date");
   const [selectedFile, setSelectedFile] = useState(null); // Track the selected file
+  const [settingsVisible, setSettingsVisible] = useState(false); // Track the visibility of the settings panel
 
   useEffect(() => {
     invoke("greet", { name: "World" }).then((response) =>
@@ -99,6 +101,11 @@ function App() {
     setSelectedFile(null);
   };
 
+  const handleSettingsClick = () => {
+    setSettingsVisible(!settingsVisible);
+  }
+
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-end mb-4">
@@ -115,6 +122,13 @@ function App() {
           <option value="title">Title</option>
           <option value="week">Week</option>
         </select>
+        {/* add a settings button which toggles visablity of the settings panel overlay, it should be gray and have a gear icon */}
+        <button className="ml-2 bg-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          onClick={handleSettingsClick}
+        >
+          <span className="sr-only">Settings</span>
+          <span role="img" aria-label="settings">⚙️</span> 
+        </button>
       </div>
       {sortOption === "week" ? (
         <div className="grid grid-cols-7 gap-4">
@@ -188,6 +202,9 @@ function App() {
       )}
       {selectedFile && (
         <Overlay file={selectedFile} onClick={handleOverlayClick} /> // Render the Overlay component when a file is selected
+      )}
+      {settingsVisible && (
+        <Settings onClick={handleSettingsClick} /> // Render the Settings component when the settings button is clicked
       )}
     </div>
   );
