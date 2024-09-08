@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 
 // src/components/TextFormattingComponent.jsx
 export default function TextFormattingComponent({
-  defaultText = "**Formatted text**",
+  defaultText = "**Example**",
   defaultInputs = [
-    { markdownSyntax: "**Formatted Text**" },
-    { markdownSyntax: "__Formatted Text__" },
+    { markdownSyntax: "**Example**" },
+    { markdownSyntax: "__Example__" },
   ],
   formatType = "Bold",
   onSave,
@@ -172,20 +172,20 @@ export default function TextFormattingComponent({
               key={index}
               type="text"
               value={input.markdownSyntax}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
+              className="border border-gray-500 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-700 text-white"
               onChange={(e) => updateMarkdownSyntaxInput(index, e.target.value)}
             />
           ))}
           <div className="flex space-x-2 bottom-0">
             <button
               onClick={addMarkdownSyntaxInput}
-              className="bg-blue-500 text-white px-3.5 py-2 rounded-md text-lg font-bold text-center"
+              className="bg-gray-700 text-white px-3.5 py-1 rounded-md text-lg font-bold text-center"
             >
               +
             </button>
             <button
               onClick={removeMarkdownSyntaxInput}
-              className="bg-red-500 text-white px-3 py-2 rounded-md"
+              className="bg-gray-700 text-white px-3 py-1 rounded-md"
             >
               —
             </button>
